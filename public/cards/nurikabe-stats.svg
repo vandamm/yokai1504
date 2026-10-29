@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 608 902" preserveAspectRatio="none">
+  <!-- Restore the two printed-stat areas along Nurikabe's olive background and head outline. -->
+  <path d="M15 10h135v146H15z M358 10h239v115H358z" fill="#ada248"/>
+  <path d="M150 29C112 35 74 49 73 94v62h77Z" fill="#b2abaa"/>
+  <path d="M150 29C112 35 74 49 73 94v62" fill="none" stroke="#190d09" stroke-width="2.5"/>
+  <path d="M358 38C403 38 437 29 475 29h18c51 0 87 25 87 75v21H358Z" fill="#b2abaa"/>
+  <path d="M358 38C403 38 437 29 475 29h18c51 0 87 25 87 75v21" fill="none" stroke="#190d09" stroke-width="2.5"/>
+</svg>

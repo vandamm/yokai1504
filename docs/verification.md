@@ -1,3 +1,11 @@
+# Nurikabe stat artwork — 2026-10-29
+
+- Replaced the flat grey stat backgrounds on field Nurikabe with an SVG layer that follows the original olive background and head outline. Printed hand artwork remains unchanged; field and drag previews share the corrected CardFace.
+- Browser checks at 1440 × 900 and 390 × 844 confirmed the rectangles are gone. Evoking a soul correctly displayed 6 attack and one filled soul. The original raster illustration is unchanged.
+- 238 tests across 21 files and the production build pass. Physical phone touch was not tested.
+
+---
+
 # Local testing table and trap requirements — 2026-10-29
 
 - Removed pass/reveal/hide-table screens and actor-change Continue steps. New games default to open hands; an imported closed-hand replay also resumed immediately without a curtain. Existing player projections remain available for future online play.

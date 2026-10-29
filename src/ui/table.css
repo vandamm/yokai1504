@@ -74,6 +74,7 @@ a { color: var(--accent); }
 .field .table-card { width: 100%; max-width: var(--field-card); justify-self: center; }
 .card-face { position: relative; display: block; width: 100%; aspect-ratio: 640 / 947; container-type: inline-size; border-radius: 5px; box-shadow: 0 2px 3px #233b3024, 0 1px 1px #233b3020; }
 .card-face > img { display: block; width: 100%; height: 100%; object-fit: fill; border-radius: inherit; }
+.card-face > .card-stat-art { position: absolute; inset: 0; pointer-events: none; }
 .live-attack { position: absolute; left: 2.5%; top: 1.2%; width: 22%; height: 16%; display: flex; align-items: center; justify-content: center; background: var(--card-color); color: #fff; font-size: 29cqw; font-weight: 750; line-height: 1; letter-spacing: -1px; }
 .live-attack.modified { color: #ffe289; text-shadow: 0 1px 1px #46391350; }
 .soul-slots { position: absolute; right: 2%; top: 1.2%; width: 39%; height: 12.5%; display: flex; align-items: center; justify-content: flex-end; gap: 2cqw; background: var(--card-color); }
