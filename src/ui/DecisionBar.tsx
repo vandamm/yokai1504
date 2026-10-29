@@ -30,7 +30,7 @@ export function DecisionBar({ view, draft, busy, onCommand, onDraft, onUnavailab
     : source.def === 'sake' ? `Use + soul on recipients · ${total}/${Math.min(3, view.supply)} allocated.`
     : source.def === 'jufu' ? `Choose up to two soul-equipped yokai · ${draft.targets.length}/2 chosen.`
     : source.def === 'ougi' ? draft.targets.length ? 'Choose a different yokai to receive the soul.' : 'Choose the soul donor, then its recipient. You can also drag donor onto recipient.'
-    : source.def === 'boseki' ? 'Choose or drag a yokai from either graveyard onto your field.'
+    : source.def === 'boseki' ? 'Choose a yokai from either graveyard, or drag one of your own onto your field.'
     : source.def === 'karakasa-kozo' ? 'Choose a set trap to destroy.' : 'Choose an opposing yokai to exchange.';
   const pick = (id: string) => { const result = resolveEffectTarget(view, draft, id); if (result.command) onCommand(result.command); else if (result.event) onDraft(result.event); else onUnavailable?.(result.reason ?? 'Choose a marked target.'); };
   const staged = source.def === 'sake' || source.def === 'jufu';

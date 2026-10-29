@@ -92,8 +92,8 @@ function Inspector({ definition, card, onClose }: { definition: CardDefinition; 
 }
 
 function GraveyardTarget({ card, selected, onInspect }: { card: VisibleCard; selected: boolean; onInspect: () => void }) {
-  const drag = useTableDrag();
-  return <button type="button" {...drag.bind(card.id)} data-card-id={card.id} aria-label={`Drag ${card.definition.name} from the graveyard`} aria-pressed={selected} onClick={onInspect}><CardFace card={card} /><span>{card.definition.name}</span></button>;
+  const drag = useTableDrag(), bindings = drag.bind(card.id);
+  return <button type="button" {...bindings} data-card-id={card.id} aria-label={`${bindings['data-drag'] ? 'Drag' : 'Choose'} ${card.definition.name} from the graveyard`} aria-pressed={selected} onClick={onInspect}><CardFace card={card} /><span>{card.definition.name}</span></button>;
 }
 
 function TurnSummary({ view, openHands }: { view: GameView; openHands: boolean }) {
