@@ -1,12 +1,36 @@
 # Yokai 1504
 
-A local two-player implementation of Yokai 1504. Both players use the same browser. All cards and images are bundled; the running game does not need external services.
+A two-player implementation of Yokai 1504 with invite-only online rooms and local testing. All cards and images are bundled; the running game does not need external services.
 
 ## Play online
 
-[Open Yokai 1504](https://vandamm.github.io/yokai1504/). Local testing uses one device with undo and optional open hands. Online multiplayer is planned. Matches stay in the browser you use, separately from local development saves.
+[Open the online game](https://yokai-1504-online.vandamm.workers.dev/). This branch adds a separate Cloudflare Worker with an authoritative, persistent game server. The main branch’s [GitHub Pages site](https://vandamm.github.io/yokai1504/) remains the local-testing version.
 
-## Deployment
+Create an online table, enter your name, and send the invitation link to the second player. Each browser keeps its own private seat. Only your hand and trap are revealed. Live updates poll every two seconds while visible; pending turns, traps and effects persist when both players leave. Reopen the room link in the same browser to resume. The table keeps your side at the bottom throughout.
+
+Treat the invitation as private: it grants the first guest the other seat. Once joined it cannot admit a different seat. Invitations are carried in URL fragments and removed after joining. Seat credentials stay in browser storage and Authorization headers; clearing browser data loses access. There are no accounts or seat-recovery emails yet.
+
+Online undo requests pause play until the opponent accepts or declines; the requester can cancel. Full replay export is available only after the game finishes, because it includes both hands and deck order. Local testing retains instant undo and optional open hands. Choosing a new table leaves online rooms saved and listed under Recent online tables.
+
+## Run the online server locally
+
+```sh
+npm ci
+npm run dev:online
+```
+
+Open the printed Worker URL (normally http://127.0.0.1:8787). To test two isolated local seats on one computer, use 127.0.0.1 for the host and localhost for the guest invitation; these have separate browser storage while reaching the same local server. The local Vite-only command still runs local testing, and reports online hosting unavailable if you attempt an online room there.
+
+```sh
+npm test
+npx tsc -p tsconfig.worker.json --noEmit
+npm run test:online:http # with the local Worker running; honors rate-limit Retry-After
+npm run deploy:online  # after wrangler login
+```
+
+Online deployment uses the separate `yokai-1504-online` Worker and one SQLite Durable Object per match. State mutations, revision checks and command receipts commit atomically. Online shuffles use cryptographic randomness for every draw, while local seeded setup remains reproducible. Responses contain only the authenticated seat’s projected view. Anonymous requests have per-IP rate limits. Create/join/move retries preserve their original credentials and command IDs.
+
+## Main branch deployment
 
 Every push to `main` runs `npm ci`, the full test suite and the production build, then deploys `dist/` with GitHub Actions to GitHub Pages. A failed test or build prevents deployment. You can also run **Deploy GitHub Pages** manually from the repository's Actions tab.
 
@@ -57,7 +81,7 @@ Choose **Import replay** from setup or the table menu. Load the JSON file or pas
 - `src/session/` owns command IDs, monotonic match revisions, local saves, and undo checkpoints. Its asynchronous interface is the replacement point for an online service.
 - `src/ui/` renders views and submits commands. Normal player views exclude the opposing hand and unknown trap; the explicit local testing view reveals them.
 
-For online play, run the same rules on an authenticated authoritative server. Persist snapshots and command receipts atomically, return only the requesting player's view, and use revision checks and command IDs for stale clients/retries. Live subscriptions and correspondence polling can share that protocol. Persisted defender/effect decisions survive disconnection. Online play and negotiated online takebacks are not implemented in this release.
+For online play, run the same rules on an authenticated authoritative server. Persist snapshots and command receipts atomically, return only the requesting player's view, and use revision checks and command IDs for stale clients/retries. Live subscriptions and correspondence polling can share that protocol. Persisted defender/effect decisions survive disconnection. This branch implements this protocol with polling and negotiated takebacks. Accounts, notifications, public matchmaking and chat are outside this first online version.
 
 ## Rules notes
 

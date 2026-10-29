@@ -80,3 +80,14 @@ it('places local turn controls below the near player health', () => {
   expect(near.indexOf('Undo test')).toBeLessThan(near.indexOf('class="hand-window"'));
   expect(html.match(/Undo test/g)).toHaveLength(1);
 });
+
+it('keeps the online viewer near even when the opponent is deciding', () => {
+  const state = createGame({ seed: 45, startingPlayer: 0 });
+  const view = viewForPlayer(state, 1);
+  const html = renderToStaticMarkup(<Table view={view} viewer={1} openHands={false} targetIds={[]} chosenTargets={[]} allocations={{}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
+  expect(html).toContain('Player 2’s hand, near edge');
+  expect(html).toContain('Player 1’s hand, far edge');
+  const near = html.slice(html.indexOf('class="bottom-hand'));
+  expect(near).toContain('class="table-card');
+  for (const id of state.players[0].hand) expect(html).not.toContain(id);
+});

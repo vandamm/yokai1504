@@ -18,6 +18,7 @@ function cardLabel(card: VisibleCard, allocation = 0) {
 interface TableProps {
   turnControls?: ReactNode;
   view: GameView;
+  viewer?: PlayerId;
   openHands: boolean;
   selectedId?: string;
   targetIds: readonly string[];
@@ -46,12 +47,12 @@ function HandTrack({ player, openHands, children }: { player: PlayerView; openHa
   return <div className="hand-window"><div ref={track} className="hand-track" data-hand-seat={player.id} tabIndex={0} onScroll={measure} aria-description={`${player.handCount} cards`} aria-label={`${player.name}’s ${player.hand ? '' : 'hidden '}hand cards${openHands ? ', open hands' : ''}`}>{children}</div>{scroll.overflow && <><button type="button" className="hand-scroll hand-scroll-back" aria-label={`Scroll ${player.name}’s hand left`} disabled={scroll.start} onClick={() => track.current?.scrollBy({ left: -180, behavior: 'smooth' })}>‹</button><button type="button" className="hand-scroll hand-scroll-next" aria-label={`Scroll ${player.name}’s hand right`} disabled={scroll.end} onClick={() => track.current?.scrollBy({ left: 180, behavior: 'smooth' })}>›</button></>}</div>;
 }
 
-export function Table({ view, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls }: TableProps) {
+export function Table({ view, viewer = view.decisionPlayer, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls }: TableProps) {
   const drag = useTableDrag();
   const resolving = effectSource(view);
   const [expandedHand, setExpandedHand] = useState(false);
-  const lower = view.players[view.decisionPlayer];
-  const upper = view.players[view.decisionPlayer === 0 ? 1 : 0];
+  const lower = view.players[viewer];
+  const upper = view.players[viewer === 0 ? 1 : 0];
 
   function cardButton(card: VisibleCard, inHand = false) {
     const chosen = chosenTargets.includes(card.id);

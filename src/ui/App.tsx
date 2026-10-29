@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { CARDS } from '../game/catalog';
 import type { CardDefId, CardDefinition, GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import { LocalSession, SAVE_KEY } from '../session/local';
+import { OnlineSession, inviteLink, roomLocation } from '../session/online';
+import type { OnlineCommand, OnlineSnapshot } from '../online/protocol';
 import { DragSurface } from './DragSurface';
 import { useTableDrag } from './DragSurface';
 import { resolveDrop, resolveEffectTarget } from './drag';
@@ -66,18 +68,30 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
   </Modal>;
 }
 
-function Setup({ onStart, busy, onRules }: { onStart: (names: [string, string], starter: PlayerId | undefined, openHands: boolean) => void; busy: boolean; onRules: () => void }) {
+export function Setup({ onStart, onCreate, onJoin, entry, recent, busy, onRules }: { onStart: (names: [string, string], starter: PlayerId | undefined, openHands: boolean) => void; onCreate: (name: string) => void; onJoin: (room: string, invite: string, name: string) => void; entry: { room: string | null; invite: string | null }; recent: string[]; busy: boolean; onRules: () => void }) {
   const [names, setNames] = useState<[string, string]>(['', '']);
+  const [name, setName] = useState('');
+  const [joinLink, setJoinLink] = useState('');
+  const [joinError, setJoinError] = useState<string>();
   const [starter, setStarter] = useState('random');
   const [openHands, setOpenHands] = useState(true);
   return <main className="welcome"><section className="setup-panel">
     <h1>Yokai 1504</h1><p>Two players, one table. Reduce your rival’s 15 health to zero.</p>
+    <form className="online-setup" onSubmit={event => { event.preventDefault(); if (entry.room && entry.invite) onJoin(entry.room, entry.invite, name); else onCreate(name); }}>
+      <label>Your name<input value={name} maxLength={24} placeholder="Your name" autoComplete="nickname" onChange={event => setName(event.target.value)} /></label>
+      <button type="submit" className="primary start-button" disabled={busy}>{busy ? 'Preparing…' : entry.room && entry.invite ? 'Join invited table' : 'Create online table'}</button>
+      <p className="small muted">Share an invitation. Return in this browser to keep your private seat.</p>
+    </form>
+    {entry.room && !entry.invite && <p className="small muted">No saved seat for this room is available here. Open its invitation to join, or return in the browser you used before.</p>}
+    <details className="setup-disclosure"><summary>Join with an invitation</summary><form onSubmit={event => { event.preventDefault(); try { const location = roomLocation(joinLink.trim()); if (!location.room || !location.invite) throw new Error('Paste the complete invitation link.'); setJoinError(undefined); onJoin(location.room, location.invite, name); } catch { setJoinError('Paste the complete invitation link, including its invitation.'); } }}><label>Invitation link<input type="url" value={joinLink} onChange={event => setJoinLink(event.target.value)} required /></label>{joinError && <p role="alert">{joinError}</p>}<button type="submit" className="secondary" disabled={busy}>Join table</button></form></details>
+    {recent.length > 0 && <details className="setup-disclosure"><summary>Recent online tables</summary><div className="recent-rooms">{recent.map(room => <a key={room} href={inviteLink(window.location.href, room)}>Reopen table {room.slice(-8)}</a>)}</div></details>}
+    <details className="setup-disclosure"><summary>Local testing · both sides on this device</summary>
     <form onSubmit={event => { event.preventDefault(); onStart([names[0].trim() || 'Player 1', names[1].trim() || 'Player 2'], starter === 'random' ? undefined : Number(starter) as PlayerId, openHands); }}>
       <div className="name-fields">{([0, 1] as const).map(id => <label key={id}>Player {id + 1}<input value={names[id]} maxLength={24} placeholder={`Player ${id + 1}`} autoComplete="off" onChange={event => setNames(old => id === 0 ? [event.target.value, old[1]] : [old[0], event.target.value])} /></label>)}</div>
       <label className="starter-label">First turn<select value={starter} onChange={event => setStarter(event.target.value)}><option value="random">Choose at random</option><option value="0">{names[0].trim() || 'Player 1'}</option><option value="1">{names[1].trim() || 'Player 2'}</option></select></label>
       <label className="check-label"><input type="checkbox" checked={openHands} onChange={event => setOpenHands(event.target.checked)} /><span>Open hands <small>Show both hands and traps for testing</small></span></label>
-      <button type="submit" className="primary start-button" disabled={busy}>{busy ? 'Preparing…' : 'Start game'}</button>
-    </form><button type="button" className="text-button" onClick={onRules}>Rules & cards</button><p className="setup-note">Local testing. Auto-saved in this browser.</p>
+      <button type="submit" className="secondary start-button" disabled={busy}>{busy ? 'Preparing…' : 'Start local game'}</button>
+    </form><p className="setup-note">Local testing. Auto-saved in this browser.</p></details><button type="button" className="text-button" onClick={onRules}>Rules & cards</button>
   </section></main>;
 }
 
@@ -101,6 +115,13 @@ function TurnSummary({ view, openHands }: { view: GameView; openHands: boolean }
 }
 
 export function App() {
+  const [entry] = useState(() => roomLocation(window.location.href));
+  const [setupEntry, setSetupEntry] = useState(entry);
+  const [online] = useState(() => new OnlineSession({ getItem: key => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value) }));
+  const [onlineActive, setOnlineActive] = useState(false);
+  const onlineActiveRef = useRef(false);
+  const [pendingRetry, setPendingRetry] = useState(false);
+  const [shareLink, setShareLink] = useState<string>();
   const [storageKey] = useState(() => { const id = new URLSearchParams(window.location.search).get('session'); return id && /^[a-zA-Z0-9-]{1,80}$/.test(id) ? `${SAVE_KEY}.${id}` : SAVE_KEY; });
   const [session] = useState(() => new LocalSession({ getItem: () => window.localStorage.getItem(storageKey), setItem: (_key, value) => window.localStorage.setItem(storageKey, value) }, createId));
   const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
@@ -123,7 +144,7 @@ export function App() {
   let replayCount: number | undefined;
   try { const count = JSON.parse(replayText).actions?.length; if (Number.isSafeInteger(count) && count >= 0) replayCount = count; } catch { /* The importer reports invalid files on submission. */ }
   const [replayError, setReplayError] = useState<string>();
-  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command: GameCommand; geometry: Geometry }>();
+  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command?: GameCommand; geometry: Geometry }>();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [inspectionId, setInspectionId] = useState<string>();
   const rail = useMediaQuery('(min-width: 1280px) and (min-height: 650px)');
@@ -143,29 +164,79 @@ export function App() {
     snapshotRef.current = next;
     setSnapshot(next);
   };
-  useEffect(() => { let live = true; session.load().then(saved => { if (live && saved) adopt(saved); }).catch(reason => { if (live) setError(errorMessage(reason)); }).finally(() => { if (live) setLoading(false); }); return () => { live = false; }; }, [session]);
+  const activateOnline = (next: OnlineSnapshot) => {
+    onlineActiveRef.current = true; setOnlineActive(true); setPendingRetry(false);
+    setSetupEntry({ room: null, invite: null });
+    window.history.replaceState(null, '', inviteLink(window.location.href, next.matchId));
+    setShareLink(online.invite ? inviteLink(window.location.href, next.matchId, online.invite) : undefined);
+    return next;
+  };
+  useEffect(() => { let live = true; (entry.room ? online.load(entry.room) : online.resumeCreation().then(created => created ?? session.load())).then(saved => { if (live && saved) adopt('viewer' in saved ? activateOnline(saved as OnlineSnapshot) : saved); }).catch(reason => { if (live) setError(errorMessage(reason)); }).finally(() => { if (live) setLoading(false); }); return () => { live = false; }; }, [session, online, entry]);
   const perform = async (work: () => Promise<SessionSnapshot>) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null);
     try { adopt(await work()); } catch (reason) { setError(errorMessage(reason)); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean) => void perform(() => session.start({ seed: secureNumber(), names, startingPlayer, openHands }));
+  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean) => void perform(async () => {
+    const next = await session.start({ seed: secureNumber(), names, startingPlayer, openHands });
+    onlineActiveRef.current = false; setOnlineActive(false); setPendingRetry(false); setShareLink(undefined);
+    setSetupEntry({ room: null, invite: null });
+    const url = new URL(window.location.href); url.searchParams.delete('room'); url.hash = ''; window.history.replaceState(null, '', url.href);
+    return next;
+  });
+  const createOnline = (name: string) => void perform(async () => activateOnline(await online.start(name)));
+  const joinOnline = (room: string, invite: string, name: string) => void perform(async () => activateOnline(await online.join(room, invite, name)));
+  const mayAct = () => {
+    const current = snapshotRef.current;
+    if (!onlineActiveRef.current) return true;
+    const match = current as OnlineSnapshot | null;
+    return !!match && !online.pending && !match.waitingForOpponent && match.undoRequestedBy === null && match.viewer === match.view.decisionPlayer && !match.view.result;
+  };
+  const present = (before: SessionSnapshot, next: SessionSnapshot, command?: GameCommand, geometry = captureGeometry()) => {
+    if (next.revision <= before.revision) { acceptPlayback(before); return; }
+    if (!transitionEvents(before.view, next.view, command).length) acceptPlayback(next);
+    else setPlayback({ before, next, command, geometry });
+  };
+  useEffect(() => {
+    if (!onlineActive) return;
+    let live = true, polling = false;
+    const poll = async () => {
+      if (!live || polling || document.visibilityState !== 'visible' || busyRef.current || online.pending) return;
+      polling = true;
+      try {
+        const next = await online.getSnapshot(), current = snapshotRef.current;
+        if (live && !busyRef.current && current && current.matchId === next.matchId && next.revision > current.revision) {
+          busyRef.current = true; setBusy(true); present(current, next);
+        }
+      } catch (reason) { if (live) setError(errorMessage(reason)); }
+      finally { polling = false; }
+    };
+    const timer = window.setInterval(() => void poll(), 2000);
+    document.addEventListener('visibilitychange', poll);
+    return () => { live = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [onlineActive, online, snapshot?.matchId]);
   const submit = async (command: GameCommand) => {
-    const before = snapshotRef.current; if (!before || busyRef.current) return;
+    const before = snapshotRef.current; if (!before || busyRef.current || !mayAct()) return;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null); setHovered(undefined);
     const geometry = captureGeometry();
     try {
-      const next = await session.submit({ matchId: before.matchId, commandId: createId(), expectedRevision: before.revision, actor: before.view.decisionPlayer, command });
-      const events = transitionEvents(before.view, next.view, command);
-      if (!events.length) acceptPlayback(next);
-      else setPlayback({ before, next, command, geometry });
-    } catch (reason) { setError(errorMessage(reason)); busyRef.current = false; setBusy(false); }
+      const next = onlineActiveRef.current ? await online.submit({ commandId: createId(), expectedRevision: before.revision, command }) : await session.submit({ matchId: before.matchId, commandId: createId(), expectedRevision: before.revision, actor: before.view.decisionPlayer, command });
+      present(before, next, command, geometry);
+    } catch (reason) { setError(errorMessage(reason)); setPendingRetry(!!online.pending); busyRef.current = false; setBusy(false); }
+  };
+  const onlineAction = async (command?: OnlineCommand) => {
+    const before = snapshotRef.current; if (!before || busyRef.current) return;
+    busyRef.current = true; setBusy(true); setError(null);
+    try {
+      const next = command ? await online.submit({ commandId: createId(), expectedRevision: before.revision, command }) : await online.retry();
+      setPendingRetry(false); acceptPlayback(next);
+    } catch (reason) { setError(errorMessage(reason)); setPendingRetry(!!online.pending); busyRef.current = false; setBusy(false); }
   };
   const acceptPlayback = (next: SessionSnapshot) => { adopt(next); setPlayback(undefined); busyRef.current = false; setBusy(false); };
   const finishPlayback = () => { if (playback) acceptPlayback(playback.next); };
   const exportReplay = async () => {
-    try { const raw = await session.exportReplay(); const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = `yokai1504-turn-${snapshotRef.current?.view.turn}.json`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); setNotice('Replay exported. It includes both hands and deck order.'); setMenu(false); }
+    try { const raw = await (onlineActiveRef.current ? online.exportReplay() : session.exportReplay()); const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = `yokai1504-turn-${snapshotRef.current?.view.turn}.json`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); setNotice('Replay exported. It includes both hands and deck order.'); setMenu(false); }
     catch (reason) { setError(errorMessage(reason)); }
   };
   const importReplay = async () => {
@@ -174,34 +245,36 @@ export function App() {
       const id = createId(), key = `${SAVE_KEY}.${id}`;
       const other = new LocalSession({ getItem: () => window.localStorage.getItem(key), setItem: (_key, value) => window.localStorage.setItem(key, value) }, createId);
       await other.importReplay(replayText, replayThrough.trim() ? Number(replayThrough) : undefined);
-      const url = new URL(window.location.href); url.searchParams.set('session', id);
+      const url = new URL(window.location.href); url.searchParams.delete('room'); url.hash = ''; url.searchParams.set('session', id);
       window.open(url.href, '_blank', 'noopener'); setReplayOpen(false); setNotice('Replay opened in a separate session. Your current match is unchanged.');
     } catch (reason) { setReplayError(errorMessage(reason)); }
   };
-  const undo = () => { const before = snapshotRef.current; if (before) void perform(() => session.undo(before.revision)); };
+  const undo = () => { const before = snapshotRef.current; if (before) { if (onlineActiveRef.current) void onlineAction({ type: 'requestUndo' }); else void perform(() => session.undo(before.revision)); } };
   const toggleOpenHands = (value: boolean) => void perform(() => session.setOpenHands(value));
-  const onDraft = (event: DraftEvent) => { if (!busyRef.current) { setDraft(old => updateDraft(old, event)); setNotice(null); setError(null); } };
+  const onDraft = (event: DraftEvent) => { if (!busyRef.current && mayAct()) { setDraft(old => updateDraft(old, event)); setNotice(null); setError(null); } };
   const view = snapshot?.view;
+  const onlineMatch = onlineActive && snapshot ? snapshot as OnlineSnapshot : undefined;
+  const actionBlocked = busy || !mayAct();
   const cards = view ? allVisible(view) : [];
   const source = view ? effectSource(view) : undefined;
   const selected = cards.find(card => card.id === draft.selectedId);
   const inspected = cards.find(card => card.id === inspectionId) ?? selected ?? source;
-  const candidates = view ? decisionCandidates(view, draft) : { cards: [], hiddenTrapSeats: [], minimum: 0, maximum: 1 };
+  const candidates = view && !actionBlocked ? decisionCandidates(view, draft) : { cards: [], hiddenTrapSeats: [], minimum: 0, maximum: 1 };
   const onDetails = (card?: VisibleCard) => { setInspectionId(card?.id ?? inspected?.id ?? cards[0]?.id); setDetailsOpen(true); };
   const chooseTarget = (id: string) => {
-    if (!view || busyRef.current) return;
+    if (!view || busyRef.current || !mayAct()) return;
     const result = resolveEffectTarget(view, draft, id);
     if (result.command) void submit(result.command); else if (result.event) onDraft(result.event); else setNotice(result.reason ?? 'Choose a marked target.');
   };
-  const onCard = (card: VisibleCard) => { if (shiftHeld) return; if (!busyRef.current) { if (view?.phase === 'effect' && candidates.cards.some(target => target.id === card.id)) chooseTarget(card.id); else { onDraft({ type: 'select', id: card.id }); setInspectionId(card.id); } } };
+  const onCard = (card: VisibleCard) => { if (shiftHeld) return; if (!busyRef.current) { if (mayAct() && view?.phase === 'effect' && candidates.cards.some(target => target.id === card.id)) chooseTarget(card.id); else { setDraft(old => updateDraft(old, { type: 'select', id: card.id })); setInspectionId(card.id); } } };
   const onTrap = (seat: PlayerId) => { if (shiftHeld) return; if (view?.phase === 'effect' && candidates.hiddenTrapSeats.includes(seat)) { chooseTarget(`trap:${seat}`); return; } const trap = view?.players[seat].trap; if (trap && !('hidden' in trap)) onCard(trap); else setNotice('This trap is face down.'); };
   const drop = (sourceId: string, targetId: string) => {
-    if (!view || busyRef.current) return;
+    if (!view || busyRef.current || !mayAct()) return;
     const result = resolveDrop(view, draft, sourceId, targetId);
     if (result.command) void submit(result.command); else if (result.event) onDraft(result.event); else setNotice(result.reason ?? 'Choose a highlighted destination.');
   };
   const soul = (card: VisibleCard) => {
-    if (!view || busyRef.current) return;
+    if (!view || busyRef.current || !mayAct()) return;
     if (view.phase === 'effect' && source?.def === 'sake') {
       const count = draft.allocations[card.id] ?? 0;
       if (count < allocationLimit(view, draft, card.id)) onDraft({ type: 'setAllocation', id: card.id, count: count + 1 });
@@ -230,18 +303,26 @@ export function App() {
       <div className="header-tools"><button type="button" className="header-button" disabled={busy} onClick={() => snapshot ? setMenu(true) : setRules(true)}>{snapshot ? 'Menu' : 'Rules'}</button>{!snapshot && <button type="button" className="header-button" onClick={() => setReplayOpen(true)}>Import replay</button>}</div>
     </header>
     {errorBanner}
-    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} busy={busy} onRules={() => setRules(true)} /> : <>
+    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={online.rooms()} busy={busy} onRules={() => setRules(true)} /> : <>
       {!rail && <div className="match-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div>}
+      {onlineMatch && <section className="online-status" aria-label="Online table" role="status">
+        {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
+        {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
+          : onlineMatch.undoRequestedBy !== null ? <><strong>{onlineMatch.undoRequestedBy === onlineMatch.viewer ? 'You requested an undo. Waiting for approval.' : `${view.players[onlineMatch.undoRequestedBy].name} requests an undo.`}</strong><div className="online-status-actions">{onlineMatch.undoRequestedBy === onlineMatch.viewer ? <button type="button" className="secondary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'cancelUndo' })}>Cancel request</button> : <><button type="button" className="primary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'acceptUndo' })}>Accept undo</button><button type="button" className="secondary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'declineUndo' })}>Decline</button></>}</div></>
+          : view.result ? <span>Finished table · replay available in Menu</span>
+          : <span>{view.decisionPlayer === onlineMatch.viewer ? view.phase === 'trap' ? 'Your trap response' : 'Your decision' : `Waiting for ${view.players[view.decisionPlayer].name}${view.phase === 'trap' ? '’s trap response' : view.phase === 'effect' ? ' to resolve an effect' : ' to play'}`}</span>}
+      </section>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
-      <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={busy} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
-        {!playback && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
-        {source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
-        <Table view={view} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
-          <TurnControls view={view} draft={draft} busy={busy} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
+      <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={actionBlocked} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
+        {!playback && !actionBlocked && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
+        {!actionBlocked && source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
+        <Table view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
+          <TurnControls view={view} viewer={onlineMatch?.viewer} draft={draft} busy={actionBlocked} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={onlineMatch ? undefined : undo} canUndo={snapshot.canUndo} />
+          {onlineMatch && <button type="button" className="text-button online-undo" disabled={busy || pendingRetry || !snapshot.canUndo || onlineMatch.waitingForOpponent || onlineMatch.undoRequestedBy !== null} onClick={undo}>Request undo</button>}
           {playback && <span className="resolving-label" role="status">Resolving…</span>}
           {view.result && <button type="button" className="primary" onClick={() => setRestart(true)}>Play again</button>}
-        </>} onSoul={busy ? undefined : soul} onRelease={busy ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
-        {!playback && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
+        </>} onSoul={actionBlocked ? undefined : soul} onRelease={actionBlocked ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
+        {!playback && !actionBlocked && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
       </div></DragSurface>
       {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
       </main>
@@ -249,8 +330,8 @@ export function App() {
     {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command)} geometry={playback.geometry} onComplete={finishPlayback} />}
     {menu && snapshot && <Modal title="Table menu" onClose={() => setMenu(false)}><div className="phone-menu-actions">
       <button type="button" className="secondary" onClick={() => { setMenu(false); setRules(true); }}>Rules & cards</button><button type="button" className="secondary" onClick={() => { setMenu(false); setHistory(true); }}>Public history</button>
-      <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>
-      <p className="small muted">Replay files include both hands and deck order.</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>Export replay</button><button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
+      {!onlineMatch && <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>}
+      {(!onlineMatch || view?.result) && <><p className="small muted">Replay files include both hands and deck order.</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>Export replay</button></>}<button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setRestart(true); }}>New game</button></div></Modal>}
     {replayOpen && <Modal title="Import replay" onClose={() => setReplayOpen(false)}><p>Choose an exported JSON file or paste it below. The replay opens in a separate session with its own save.</p><input type="file" accept=".json,application/json" aria-label="Replay file" onChange={async event => { const file = event.target.files?.[0]; if (file) { if (file.size > 5_000_000) setReplayError('The replay file is too large.'); else setReplayText(await file.text()); } }} /><textarea className="replay-input" aria-label="Replay JSON" value={replayText} onChange={event => setReplayText(event.target.value)} placeholder="Paste replay JSON" /><label className="replay-through">Replay through action<input type="number" min="0" max={replayCount} value={replayThrough} onChange={event => setReplayThrough(event.target.value)} placeholder={replayCount === undefined ? 'All actions' : `All ${replayCount} actions`} /></label>{replayError && <p role="alert">{replayError}</p>}<button type="button" className="primary" disabled={!replayText.trim()} onClick={() => void importReplay()}>Open replay in new session</button></Modal>}
     {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /></Modal>}
@@ -259,6 +340,6 @@ export function App() {
     {rules && <Rules onClose={() => setRules(false)} onInspect={setReference} />}
     {reference && <Modal title={reference.name} onClose={() => setReference(null)}><Inspector definition={reference} /></Modal>}
     {graveyard !== null && view && <Modal title={`${view.players[graveyard].name}’s graveyard`} onClose={() => { setGraveyard(null); setHovered(undefined); }}><div className="graveyard-grid">{view.players[graveyard].graveyard.length ? view.players[graveyard].graveyard.map(card => <button type="button" className="graveyard-card" data-card-id={card.id} key={card.id} onClick={() => { if (desktop) return; setGraveyard(null); onDetails(card); }}><CardFace card={card} /><span>{card.definition.name}</span></button>) : <p>No cards here yet.</p>}</div></Modal>}
-    {restart && <Modal title="Start a new game?" onClose={() => setRestart(false)}><p>Starting the next game replaces this match and its undo history.</p><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setRestart(false)}>Keep playing</button><button type="button" className="primary" disabled={busy} onClick={() => { resetTableUI(); setRestart(false); snapshotRef.current = null; setSnapshot(null); setError(null); }}>Set up new game</button></div></Modal>}
+    {restart && <Modal title="Start a new game?" onClose={() => setRestart(false)}><p>{onlineMatch ? 'This online table stays saved. Reopen its room link in this browser to return.' : 'Starting the next local game replaces this match and its undo history.'}</p><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setRestart(false)}>Keep playing</button><button type="button" className="primary" disabled={busy} onClick={() => { resetTableUI(); setRestart(false); onlineActiveRef.current = false; setOnlineActive(false); snapshotRef.current = null; setSnapshot(null); setPendingRetry(false); setError(null); const url = new URL(window.location.href); url.searchParams.delete('room'); url.hash = ''; window.history.replaceState(null, '', url.href); }}>Set up new game</button></div></Modal>}
   </div>;
 }

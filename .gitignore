@@ -5,3 +5,8 @@ dist/
 
 # Local screenshots of a signed-in reference game.
 docs/design/clean-table/board-together-game-*.jpg
+
+# Local Worker runtime and secrets
+.wrangler/
+.dev.vars*
+.env*

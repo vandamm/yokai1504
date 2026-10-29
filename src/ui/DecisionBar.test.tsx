@@ -47,3 +47,11 @@ it('keeps Undo beside End turn with a drawn arrow and no extra action cost', () 
   expect(html).toContain('Undo');
   expect(html).toContain('End turn');
 });
+
+it('keeps inspection available without attributing the opponent’s controls to a fixed online viewer', () => {
+  const view = position(), draft = { ...emptyDraft(), selectedId: view.players[1].hand![0].id };
+  const html = renderToStaticMarkup(<TurnControls view={view} viewer={1} draft={draft} busy onCommand={() => {}} onDetails={() => {}} showInspect />);
+  expect(html).toContain('Inspect');
+  expect(html).not.toContain('End turn');
+  expect(html).not.toContain('actions left');
+});

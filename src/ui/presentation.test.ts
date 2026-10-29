@@ -27,3 +27,30 @@ it('does not replay a yokai drop or fly souls from Supply', () => {
   const evoked = structuredClone(after); evoked.players[0].field[0].souls++;
   expect(transitionEvents(after, evoked, { type: 'evoke', cardId: card.id })).toEqual([]);
 });
+
+it('infers an opponent summon and attack from private snapshots without a fake command', () => {
+  const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
+  const card = before.players[0].hand!.find(c => c.definition.kind === 'yokai')!;
+  before.players[0].hand = null;
+  const after = structuredClone(before); after.players[0].field = [{ ...card, zone: 'field' }];
+  expect(transitionEvents(before, after)).toContainEqual(expect.objectContaining({ kind: 'move', from: 'hand:0', to: 'field:0:0', card: expect.objectContaining({ id: card.id }) }));
+  const attacked = structuredClone(after); attacked.phase = 'turnEnd'; attacked.players[1].health -= card.attack; attacked.history.push(`${after.players[0].name} attacks with ${card.definition.name} directly.`);
+  expect(transitionEvents(after, attacked)).toContainEqual(expect.objectContaining({ kind: 'attack', from: card.id, to: 'health:1' }));
+});
+
+it('animates public spell reveals, revival and hidden trap placement without revealing a hidden card', () => {
+  const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
+  const spell = before.players[0].hand!.find(c => c.definition.kind === 'spell')!;
+  const yokai = before.players[0].hand!.find(c => c.definition.kind === 'yokai')!;
+  before.players[0].hand = null;
+  before.players[0].graveyard = [{ ...yokai, zone: 'graveyard' }];
+  const after = structuredClone(before);
+  after.players[0].graveyard = [{ ...spell, zone: 'graveyard' }];
+  after.players[0].field = [{ ...yokai, zone: 'field' }];
+  expect(transitionEvents(before, after)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ kind: 'move', from: 'graveyard:0', to: 'field:0:0', card: expect.objectContaining({ id: yokai.id }) }),
+    expect.objectContaining({ kind: 'move', from: 'hand:0', to: 'graveyard:0', card: expect.objectContaining({ id: spell.id }) }),
+  ]));
+  const trapped = structuredClone(before); trapped.players[0].trap = { hidden: true };
+  expect(transitionEvents(before, trapped)).toContainEqual({ kind: 'move', from: 'hand:0', to: 'trap:0', seat: 0 });
+});

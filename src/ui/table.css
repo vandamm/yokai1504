@@ -457,6 +457,17 @@ input[type='checkbox'] { width: 20px; height: 20px; margin: 0; accent-color: var
 .seat-summary .action-budget { gap: 4px; min-height: 24px; padding: 3px 5px; font-size: 11px; }
 .seat-summary .action-budget > strong { font-size: 17px; }
 .seat-summary .action-pips { display: none; }
+.setup-disclosure { margin-block: 18px; border-top: 1px solid #d2d9d2; padding-top: 14px; }
+.setup-disclosure summary { cursor: pointer; color: #455b4a; font-size: 14px; }
+.setup-disclosure form, .recent-rooms { margin-top: 16px; }
+.recent-rooms { display: grid; gap: 14px; font-size: 14px; }
+.online-status { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 6px 12px; border-bottom: 1px solid #d2d9d2; background: #edf4e8; color: #36553c; font-size: 12px; }
+.online-status-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.online-status button { padding: 5px 10px; font-size: 12px; }
+.invite-share { display: flex; align-items: flex-end; gap: 8px; width: min(100%, 640px); }
+.invite-share label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.invite-share input { width: 100%; min-height: 36px; font-size: 12px; }
+.seat-summary > .online-undo { order: 4; padding: 4px 0; font-size: 11px; text-align: left; }
 .resolving-label { order: 4; color: var(--muted); font-size: 12px; }
 .history-card-link { display: inline; min-height: 0; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .history-card-link:hover { color: #174c57; background: transparent; }

@@ -262,3 +262,12 @@ describe('trap casting requirements at attack declaration', () => {
     expect(canActivate(n,n.players[1].trap!,'trap')).toBe(true); invariant(n);
   });
 });
+
+it('can source every online setup draw independently of the local reproducible seed', () => {
+  let calls=0;
+  const first=createGame({seed:1},()=>{calls++;return .75;});
+  const second=createGame({seed:999},()=>.75);
+  expect(first).toEqual(second);
+  expect(calls).toBe(57);
+  expect(first.turnPlayer).toBe(1);
+});

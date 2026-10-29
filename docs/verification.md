@@ -1,3 +1,15 @@
+# Online play — 2026-10-29
+
+- Branch codex/online-play adds a separate Cloudflare Worker and SQLite Durable Object per match. Main’s Pages deployment is untouched.
+- 265 tests across 24 files, both frontend and Worker TypeScript checks, production build and Worker dry run pass. Added authentication/hidden view, schema validation, actor permissions for all pending phases, idempotency, revision conflicts, undo consent, replay, fixed-view layout and transport recovery coverage.
+- Deployed HTTPS smoke played 47 actions to victory; local HTTP smoke played 48 actions to victory using two independently authenticated private views. Confirmed one-use invitation, duplicate request safety, stale revision rejection, agreed undo and validated final replay import. Rate-limit responses pause and retry; requests remain bounded.
+- Actual browser seats used independent 127.0.0.1 and localhost storage. Host Alex created an invitation, guest Poli joined and the invitation fragment disappeared. Opposing hands were card backs and opponent cards had no drag bindings. Guest moves appeared on the host without refresh. Undo requested by Poli required Alex’s acceptance; guest reload restored the agreed position.
+- Online Kappa attack handed control to the defender’s fixed viewpoint. A full local server process restart preserved the pending trap response. Hamaya destroyed the highest-attack Kappa, cancelled battle and returned to explicit End turn. Phone layout at 390 × 844 had no document overflow and preserved own hand at the bottom.
+- Fresh review identified predictable 32-bit online shuffle seeds and credential loss on rate-limited creation/join retries. Online setup now uses cryptographic randomness per shuffle draw; local deterministic seeds still reproduce prior games. Creation/join credentials persist before requests and survive response loss and 429s. A retry control remains visible even when an error banner is dismissed or undo negotiation is pending.
+- Deployed Worker: https://yokai-1504-online.vandamm.workers.dev/ . No main merge or Pages replacement. Physical two-phone touch testing, accounts, notifications and credential recovery are not implemented/verified. Browser storage is the seat credential; clearing it loses access.
+
+---
+
 # Nurikabe stat artwork — 2026-10-29
 
 - Replaced the flat grey stat backgrounds on field Nurikabe with an SVG layer that follows the original olive background and head outline. Printed hand artwork remains unchanged; field and drag previews share the corrected CardFace.

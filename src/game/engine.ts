@@ -216,13 +216,13 @@ function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>)
   }
   finishEffect(state,pending.attack);
 }
-export function createGame(options: SetupOptions): GameState {
+export function createGame(options: SetupOptions, randomSource?: () => number): GameState {
   requireRule(options && Number.isInteger(options.seed) && Number.isFinite(options.seed),'Use a finite integer shuffle seed.');
   requireRule(options.startingPlayer===undefined || options.startingPlayer===0 || options.startingPlayer===1,'Choose a valid starting player.');
   const names=options.names??['Player 1','Player 2'];
   requireRule(Array.isArray(names) && names.length===2 && names.every(name=>typeof name==='string' && name.trim().length>0),'Supply two player names.');
   let seed=options.seed>>>0;
-  const random=()=>{ seed=(seed+0x6D2B79F5)>>>0; let value=Math.imul(seed^(seed>>>15),1|seed); value^=value+Math.imul(value^(value>>>7),61|value); return ((value^(value>>>14))>>>0)/4294967296; };
+  const random=randomSource??(()=>{ seed=(seed+0x6D2B79F5)>>>0; let value=Math.imul(seed^(seed>>>15),1|seed); value^=value+Math.imul(value^(value>>>7),61|value); return ((value^(value>>>14))>>>0)/4294967296; });
   const shuffle=<T>(values: T[]): T[]=>{ const result=[...values]; for(let i=result.length-1;i>0;i--) { const j=Math.floor(random()*(i+1)); [result[i],result[j]]=[result[j],result[i]]; } return result; };
   const starter=options.startingPlayer??(random()<0.5 ? 0 : 1);
   const newPlayer=(player:PlayerId):PlayerState=>({name:names[player].trim(),health:15,deck:[],hand:[],field:[],graveyard:[],trap:null});

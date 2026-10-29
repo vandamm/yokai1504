@@ -20,6 +20,6 @@ export function Playback({ events, geometry, onComplete }: { events: VisualEvent
     const token = event.kind === 'damage';
     const width = token ? 44 : Math.min(from.width, 130), height = token ? 44 : width * 947 / 640;
     const style = { left: from.x + from.width / 2 - width / 2, top: from.y + from.height / 2 - height / 2, width, height, '--dx': `${to.x + to.width / 2 - from.x - from.width / 2}px`, '--dy': `${to.y + to.height / 2 - from.y - from.height / 2}px` } as CSSProperties;
-    return <div key={index} className={`playback-piece playback-${event.kind}`} style={style}>{event.kind === 'damage' ? `−${event.amount}` : <img src={publicAsset(`cards/${event.kind === 'draw' ? event.seat === 0 ? 'back.svg' : 'back-ochre.svg' : `${event.card?.def}.png`}`)} alt="" />}{event.kind === 'draw' && event.amount! > 1 && <b className="draw-amount">×{event.amount}</b>}</div>;
+    return <div key={index} className={`playback-piece playback-${event.kind}`} style={style}>{event.kind === 'damage' ? `−${event.amount}` : <img src={publicAsset(`cards/${event.kind === 'draw' || !event.card ? event.seat === 0 ? 'back.svg' : 'back-ochre.svg' : `${event.card.def}.png`}`)} alt="" />}{event.kind === 'draw' && event.amount! > 1 && <b className="draw-amount">×{event.amount}</b>}</div>;
   })}</div>;
 }

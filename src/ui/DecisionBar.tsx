@@ -1,4 +1,4 @@
-import type { GameCommand, GameView, VisibleCard } from '../game/types';
+import type { GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import type { DraftEvent, TableDraft } from './interaction';
 import { allVisible, canConfirmEffect, decisionCandidates, effectCommand, effectSource } from './interaction';
 import { useTableDrag } from './DragSurface';
@@ -9,9 +9,10 @@ interface Props {
   view: GameView; draft: TableDraft; busy: boolean; onDraft: (event: DraftEvent) => void;
   onCommand: (command: GameCommand) => void; onDetails: (card?: VisibleCard) => void; onUnavailable?: (reason: string) => void;
 }
-export function TurnControls({ view, draft, busy, onCommand, onDetails, showInspect = false, onUndo, canUndo = false }: Omit<Props, 'onDraft'> & { showInspect?: boolean; onUndo?: () => void; canUndo?: boolean }) {
+export function TurnControls({ view, viewer, draft, busy, onCommand, onDetails, showInspect = false, onUndo, canUndo = false }: Omit<Props, 'onDraft'> & { viewer?: PlayerId; showInspect?: boolean; onUndo?: () => void; canUndo?: boolean }) {
   const remaining = 2 - view.actionsUsed;
   const selected = allVisible(view).find(card => card.id === draft.selectedId) ?? effectSource(view);
+  if (viewer !== undefined && viewer !== view.decisionPlayer) return showInspect && selected ? <div className="turn-controls"><button type="button" className="text-button" onClick={() => onDetails(selected)}>Inspect</button></div> : null;
   return <div className="turn-controls" aria-label="Turn controls">
     {view.phase === 'main' && <span className={`action-budget ${remaining === 0 ? 'exhausted' : ''}`} role="status" aria-label={`${remaining} main ${remaining === 1 ? 'action' : 'actions'} left`}><strong>{remaining}</strong><span>{remaining === 1 ? 'action' : 'actions'} left</span><span className="action-pips" aria-hidden="true">{[0, 1].map(i => <i key={i} className={i < remaining ? '' : 'used'} />)}</span></span>}
     {showInspect && selected && <button type="button" className="text-button" onClick={() => onDetails(selected)}>Inspect</button>}
