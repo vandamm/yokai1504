@@ -60,3 +60,10 @@ describe('inspection labels', () => {
     expect(allVisible(view).map(card => inspectionLabel(view, card))).toEqual(['Dawn · Kappa · field slot 1 · ATK 2 · souls 0/3']);
   });
 });
+
+it('keeps Shift inspection inside the viewport near the right and bottom edges', async () => {
+  const { inspectionPosition } = await import('./inspection');
+  const pos = inspectionPosition({ left: 1200, right: 1300, top: 800 }, { width: 1440, height: 900 });
+  expect(pos.left).toBeLessThan(1200); expect(pos.left).toBeGreaterThanOrEqual(12);
+  expect(pos.top).toBeGreaterThanOrEqual(12); expect(pos.top + 480).toBeLessThanOrEqual(888);
+});

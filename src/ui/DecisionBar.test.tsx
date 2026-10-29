@@ -3,14 +3,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createGame } from '../game/engine';
 import { viewForLocalTesting } from '../game/views';
 import type { GameView } from '../game/types';
-import { DecisionBar } from './DecisionBar';
+import { TurnControls } from './DecisionBar';
 import { emptyDraft } from './interaction';
 
 function position() {
   return viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
 }
 function render(view: GameView, selectedId?: string) {
-  return renderToStaticMarkup(<DecisionBar view={view} draft={{ ...emptyDraft(), selectedId }} busy={false} onDraft={() => {}} onCommand={() => {}} onDetails={() => {}} />);
+  return renderToStaticMarkup(<TurnControls view={view} draft={{ ...emptyDraft(), selectedId }} busy={false} onCommand={() => {}} onDetails={() => {}} />);
 }
 
 it.each([0, 1, 2])('shows the remaining main actions in the current decision after %i actions', used => {
@@ -18,7 +18,7 @@ it.each([0, 1, 2])('shows the remaining main actions in the current decision aft
   view.actionsUsed = used;
   const left = 2 - used;
   const html = render(view);
-  expect(html).toContain('Drag a card to play');
+  expect(html).not.toContain('Drag a card to play');
   expect(html).toContain(`aria-label="${left} main ${left === 1 ? 'action' : 'actions'} left"`);
   expect(html).toContain('role="status"');
 });

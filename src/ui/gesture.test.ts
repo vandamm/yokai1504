@@ -16,3 +16,13 @@ it('cancels without committing and accepts a new gesture afterward', () => {
   expect(gesture.cancel(1)).toBe(true); expect(gesture.finish(1)).toBeNull();
   expect(gesture.begin('b', 2, 0, 0)).toBe(true); gesture.cancel(); expect(gesture.finish(2)).toBeNull();
 });
+it('suppresses only the drag’s source click, never the next allocation or target control', () => {
+  const gesture = new DragGesture();
+  gesture.begin('spell', 1, 0, 0); gesture.move(1, 30, 30); gesture.finish(1);
+  expect(gesture.shouldSuppressClick()).toBe(false);
+  gesture.begin('spell', 1, 0, 0); gesture.move(1, 30, 30); gesture.finish(1);
+  expect(gesture.shouldSuppressClick('spell')).toBe(true);
+  expect(gesture.shouldSuppressClick('target')).toBe(false);
+  gesture.begin('spell', 1, 0, 0); gesture.move(1, 30, 30); gesture.finish(1);
+  expect(gesture.shouldSuppressClick('target')).toBe(false);
+});

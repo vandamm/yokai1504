@@ -1,36 +1,43 @@
 import type { GameCommand, GameView, VisibleCard } from '../game/types';
 import type { DraftEvent, TableDraft } from './interaction';
-import { allVisible, effectSource } from './interaction';
+import { allVisible, canConfirmEffect, decisionCandidates, effectCommand, effectSource } from './interaction';
 import { useTableDrag } from './DragSurface';
+import { resolveEffectTarget } from './drag';
 import { publicAsset } from './assets';
 
-export function DecisionBar({ view, draft, busy, onCommand, onDetails, onDraft }: {
+interface Props {
   view: GameView; draft: TableDraft; busy: boolean; onDraft: (event: DraftEvent) => void;
   onCommand: (command: GameCommand) => void; onDetails: (card?: VisibleCard) => void; onUnavailable?: (reason: string) => void;
-}) {
-  const drag = useTableDrag();
-  const selected = allVisible(view).find(card => card.id === draft.selectedId), source = effectSource(view);
-  const remaining = 2 - view.actionsUsed, total = Object.values(draft.allocations).reduce((a, b) => a + b, 0);
-  let title = selected?.definition.name ?? 'Drag a card to play', prompt = 'Drag a yokai onto your field. Drag yours onto a rival to attack.';
-  if (view.phase === 'turnEnd') { title = 'Attack complete'; prompt = 'Review the result, then end your turn.'; }
-  if (view.phase === 'trap') { title = 'Respond to the attack'; prompt = 'Drag your trap to Play spell, or keep it hidden.'; }
-  if (source) {
-    title = source.definition.name;
-    prompt = source.def === 'sake' ? `Use + soul on recipients · ${total}/${Math.min(3, view.supply)} allocated. Drag Sake to Resolve.`
-      : source.def === 'jufu' ? `Drag Jufu onto up to two yokai · ${draft.targets.length}/2 chosen. Then drag to Resolve.`
-      : source.def === 'ougi' ? 'Drag a yokai with a soul onto a different yokai with room.'
-      : source.def === 'boseki' ? 'Drag a yokai from either graveyard onto your field.'
-      : 'Drag the resolving card onto a highlighted target.';
-  } else if (view.phase === 'main' && selected?.zone === 'hand' && selected.definition.kind === 'spell') prompt = 'Drag to Play spell or your empty Trap slot.';
-  return <section className={`decision-dock ${view.phase === 'effect' ? 'resolving' : ''}`} aria-label="Current decision" aria-busy={busy}>
-    {source && <div className="effect-drag-card" {...drag.bind(source.id)} tabIndex={0} role="button" aria-label={`Drag ${source.definition.name} to resolve its effect`}><img src={publicAsset(`cards/${source.def}.png`)} alt="" draggable={false} /></div>}
-    <div className="decision-copy"><div className="decision-heading"><strong>{title}</strong>{view.phase === 'main' && <span className={`action-budget ${remaining === 0 ? 'exhausted' : ''}`} role="status" aria-label={`${remaining} main ${remaining === 1 ? 'action' : 'actions'} left`} title="Playing cards and evoking souls use main actions. Free actions remain available."><strong>{remaining}</strong><span>{remaining === 1 ? 'action' : 'actions'} left</span><span className="action-pips" aria-hidden="true">{[0, 1].map(i => <i key={i} className={i < remaining ? '' : 'used'} />)}</span></span>}</div><span>{prompt}</span></div>
-    <div className="decision-controls">
-      {source && ['sake', 'jufu'].includes(source.def) && <div className="resolve-zone" {...drag.drop('resolve')} aria-label="Resolve effect drop zone">Resolve</div>}
-      {source && (total > 0 || draft.targets.length > 0) && <button type="button" className="text-button" onClick={() => onDraft({ type: 'clear' })}>Clear</button>}
-      {view.phase === 'trap' && <button type="button" disabled={busy} onClick={() => onCommand({ type: 'respond', activate: false })}>Keep hidden</button>}
-      {(selected || source) && <button type="button" className="text-button" onClick={() => onDetails(selected ?? source)}>Details</button>}
-      {(view.phase === 'main' || view.phase === 'turnEnd') && <button type="button" className={`end-turn ${view.phase === 'turnEnd' ? 'primary' : 'secondary'}`} disabled={busy} onClick={() => onCommand({ type: 'endTurn' })}>End turn</button>}
+}
+export function TurnControls({ view, draft, busy, onCommand, onDetails, showInspect = false }: Omit<Props, 'onDraft'> & { showInspect?: boolean }) {
+  const remaining = 2 - view.actionsUsed;
+  const selected = allVisible(view).find(card => card.id === draft.selectedId) ?? effectSource(view);
+  return <div className="turn-controls" aria-label="Turn controls">
+    {view.phase === 'main' && <span className={`action-budget ${remaining === 0 ? 'exhausted' : ''}`} role="status" aria-label={`${remaining} main ${remaining === 1 ? 'action' : 'actions'} left`}><strong>{remaining}</strong><span>{remaining === 1 ? 'action' : 'actions'} left</span><span className="action-pips" aria-hidden="true">{[0, 1].map(i => <i key={i} className={i < remaining ? '' : 'used'} />)}</span></span>}
+    {showInspect && selected && <button type="button" className="text-button" onClick={() => onDetails(selected)}>Inspect</button>}
+    {(view.phase === 'main' || view.phase === 'turnEnd') && <button type="button" className={view.phase === 'turnEnd' ? 'primary' : 'secondary'} disabled={busy} onClick={() => onCommand({ type: 'endTurn' })}>End turn</button>}
+  </div>;
+}
+
+/** Only pending decisions need instructions; routine play stays on the table. */
+export function DecisionBar({ view, draft, busy, onCommand, onDraft, onUnavailable }: Props) {
+  const drag = useTableDrag(), source = effectSource(view);
+  if (view.phase === 'trap') return <section className="effect-panel trap-prompt" aria-label="Trap response"><strong>Respond to the attack</strong><span>Drag your trap onto your field to activate it.</span><button type="button" disabled={busy} onClick={() => onCommand({ type: 'respond', activate: false })}>Keep hidden</button></section>;
+  if (!source) return null;
+  const candidates = decisionCandidates(view, draft), total = Object.values(draft.allocations).reduce((a, b) => a + b, 0);
+  const prompt = source.def === 'hamaya' ? 'Choose a highest-attack yokai to destroy.'
+    : source.def === 'sake' ? `Use + soul on recipients · ${total}/${Math.min(3, view.supply)} allocated.`
+    : source.def === 'jufu' ? `Choose up to two soul-equipped yokai · ${draft.targets.length}/2 chosen.`
+    : source.def === 'ougi' ? draft.targets.length ? 'Choose a different yokai to receive the soul.' : 'Choose the soul donor, then its recipient. You can also drag donor onto recipient.'
+    : source.def === 'boseki' ? 'Choose or drag a yokai from either graveyard onto your field.'
+    : source.def === 'karakasa-kozo' ? 'Choose a set trap to destroy.' : 'Choose an opposing yokai to exchange.';
+  const pick = (id: string) => { const result = resolveEffectTarget(view, draft, id); if (result.command) onCommand(result.command); else if (result.event) onDraft(result.event); else onUnavailable?.(result.reason ?? 'Choose a marked target.'); };
+  const staged = source.def === 'sake' || source.def === 'jufu';
+  return <section className="effect-panel" aria-label="Resolve card effect" aria-busy={busy}>
+    <div className="effect-drag-card" {...drag.bind(source.id)} data-card-id={source.id} tabIndex={0} role="button" aria-label={`Drag ${source.definition.name} to resolve its effect`}><img src={publicAsset(`cards/${source.def}.png`)} alt="" draggable={false} /></div>
+    <div className="effect-instructions"><strong>{source.definition.name}</strong><p>{prompt}</p>
+      {!['sake', 'boseki'].includes(source.def) && <div className="effect-targets">{candidates.cards.map(card => <button type="button" key={card.id} disabled={busy} aria-pressed={draft.targets.includes(card.id)} onClick={() => pick(card.id)}>{source.def === 'hamaya' ? 'Destroy ' : ''}{card.definition.name} · {view.players[card.controller].name} · ATK {card.attack}</button>)}{candidates.hiddenTrapSeats.map(seat => <button type="button" key={seat} disabled={busy} onClick={() => pick(`trap:${seat}`)}>Destroy {view.players[seat].name}’s trap</button>)}</div>}
+      <div className="effect-confirm">{staged && <button type="button" className="primary" {...drag.drop('resolve')} disabled={busy || !canConfirmEffect(view, draft)} onClick={() => onCommand(effectCommand(view, draft))}>Resolve {source.definition.name}</button>}{(total > 0 || draft.targets.length > 0) && <button type="button" className="text-button" onClick={() => onDraft({ type: 'clear' })}>Clear choices</button>}</div>
     </div>
   </section>;
 }

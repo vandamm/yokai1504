@@ -26,3 +26,11 @@ it('does not animate a battle while a trap effect is still pending or cancelled 
   const cancelled = structuredClone(before); cancelled.phase = 'turnEnd'; cancelled.history.push('The declared attack is cancelled.');
   expect(transitionEvents(before, cancelled, { type: 'respond', activate: true }).some(e => e.kind === 'attack')).toBe(false);
 });
+it('does not replay a yokai drop or fly souls from Supply', () => {
+  const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
+  const card = before.players[0].hand!.find(c => c.definition.kind === 'yokai')!;
+  const after = structuredClone(before); after.players[0].field = [{ ...card, zone: 'field', souls: 1 }];
+  expect(transitionEvents(before, after, { type: 'play', cardId: card.id })).toEqual([]);
+  const evoked = structuredClone(after); evoked.players[0].field[0].souls++;
+  expect(transitionEvents(after, evoked, { type: 'evoke', cardId: card.id })).toEqual([]);
+});

@@ -1,4 +1,4 @@
-import { resolveDrop } from './drag';
+import { resolveDrop, resolveEffectTarget } from './drag';
 import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, RuleError } from '../game/engine';
 import { viewForPlayer } from '../game/views';
@@ -102,7 +102,7 @@ describe('projected interaction paths across complete games', () => {
           if (view.phase === 'main' && ['play', 'setTrap', 'attack'].includes(command.type)) {
             const sourceId = command.type === 'attack' ? command.attacker : 'cardId' in command ? command.cardId : '';
             const source = allVisible(view).find(card => card.id === sourceId)!;
-            const target = command.type === 'attack' ? command.target ?? `player:${view.decisionPlayer === 0 ? 1 : 0}` : command.type === 'setTrap' ? `trap:${view.decisionPlayer}` : source.definition.kind === 'spell' ? 'play' : `field:${view.decisionPlayer}`;
+            const target = command.type === 'attack' ? command.target ?? `player:${view.decisionPlayer === 0 ? 1 : 0}` : command.type === 'setTrap' ? `trap:${view.decisionPlayer}` : `field:${view.decisionPlayer}`;
             expect(resolveDrop(view, emptyDraft(), sourceId, target).command, `drag ${context}`).toEqual(enabled ? command : undefined);
           }
         };
@@ -140,6 +140,18 @@ describe('projected interaction paths across complete games', () => {
             else if (source.def === 'boseki') dragged = resolveDrop(view, emptyDraft(), draft.targets[0], `field:${view.decisionPlayer}`);
             else dragged = resolveDrop(view, emptyDraft(), source.id, draft.targets[0]);
             expect(dragged.command, `drag choice ${source.def}`).toEqual(command);
+            let tappedDraft = emptyDraft(), tappedCommand: Extract<GameCommand, { type: 'choose' }> | undefined;
+            const taps = source.def === 'sake' ? Object.entries(draft.allocations).flatMap(([id, count]) => Array.from({ length: count }, () => id)) : draft.targets;
+            for (const id of taps) {
+              const result = resolveEffectTarget(view, tappedDraft, id);
+              expect(result.reason, `tap choice ${source.def}`).toBeUndefined();
+              if (result.event) tappedDraft = updateDraft(tappedDraft, result.event);
+              if (result.command) {
+                if (result.command.type !== 'choose') throw new Error('Effect targets must produce a choice command.');
+                tappedCommand = result.command;
+              }
+            }
+            expect(choiceKey(state, tappedCommand ?? effectCommand(view, tappedDraft)), `tap path ${source.def}`).toBe(choiceKey(state, command));
             reachable.add(choiceKey(state, command));
             check(command, true, source.def);
           }

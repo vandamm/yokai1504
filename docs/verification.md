@@ -1,3 +1,16 @@
+# Table cleanup and Hamaya replay — 2026-10-29
+
+- Reproduced the supplied turn-3 replay in an independent session: Hamaya was legally pending a highest-attack target, but tapping marked Yuki-onna only inspected it. Tapping the target now resolves the spell, destroys Yuki-onna, cancels the attack and enables End turn. Explicit target buttons provide the same continuation. A sanitized regression test covers that position without publishing the user replay.
+- Removed the bottom decision/outcome bars and visual hand counts/separators/field frames. Main actions and End turn are at the top; pending choices are above the table; desktop history occupies the sidebar, with a side drawer on phones.
+- Shift-hover inspection showed a large tooltip while held and removed it on release. Desktop graveyard clicks remain in the graveyard; Shift inspection portals into its dialog. The desktop sidebar has no inspector.
+- Spells cast by dragging onto the same field used for yokai, including occupied cards. During a real drag the source hand card had opacity 0. Yokai appeared on the board with no playback layer; evocation updated attack and souls immediately with `soul-arrive` animation, also without playback.
+- Instant adoption exposed a leftover synthetic-click flag that swallowed the next allocation click. Suppression now matches only the dragged source. Its regression test and a repeated phone Sake drag → first Tengu allocation → Resolve confirm one soul is placed.
+- Six occupied cards fit, with zero document overflow, at 390 × 844, 430 × 932, 1024 × 768, 1280 × 650, 1440 × 900 and 1488 × 1005. Pending Sake kept all six cards and Resolve visible at 390 × 844. The phone history drawer occupied the right edge and full viewport height.
+- 224 tests across 19 files, including target-tap and drag equivalence throughout 96 complete-match audits, pass. TypeScript, production build and whitespace checks pass.
+- Physical iPhone/Android touch behavior remains unverified.
+
+---
+
 # Verification update — 2026-10-29
 
 - Desktop hands scale to about 95 CSS px at 1488 × 1005 (previously 63 px); health, text, controls and piles are larger. The 2/1/0 main-action budget is beside the current decision, and hidden during defender effects.

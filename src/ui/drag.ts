@@ -1,5 +1,5 @@
 import type { GameCommand, GameView } from '../game/types';
-import { actionUnavailableReason, allVisible, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
+import { actionUnavailableReason, allVisible, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
 import type { DraftEvent, TableDraft } from './interaction';
 export interface DropResult { command?: GameCommand; event?: DraftEvent; reason?: string; }
 const invalid = (reason = 'Drop on a highlighted destination.') => ({ reason });
@@ -8,8 +8,8 @@ export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string,
   if (!card || view.result || sourceId === targetId) return invalid();
   const own = view.decisionPlayer, opponent = own === 0 ? 1 : 0;
   if (view.phase === 'trap') {
-    if (card.zone === 'trap' && card.controller === own && targetId === 'play') { const reason = effectUnavailableReason(view, card); return reason ? invalid(reason) : { command: { type: 'respond', activate: true } }; }
-    return invalid('Drag your trap to Play, or keep it hidden.');
+    if (card.zone === 'trap' && card.controller === own && (targetId === `field:${own}` || target?.zone === 'field' && target.controller === own)) { const reason = effectUnavailableReason(view, card); return reason ? invalid(reason) : { command: { type: 'respond', activate: true } }; }
+    return invalid('Drag your trap onto your field, or keep it hidden.');
   }
   if (view.phase === 'effect') {
     const source = effectSource(view); if (!source) return invalid();
@@ -35,8 +35,8 @@ export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string,
   if (view.phase !== 'main' || card.controller !== own) return invalid('Finish the current decision first.');
   if (card.zone === 'hand' || card.zone === 'trap') {
     const action = card.definition.kind === 'spell' && card.zone === 'hand' && targetId === `trap:${own}` ? 'setTrap' : 'play';
-    const destination = action === 'setTrap' || (card.definition.kind === 'spell' ? targetId === 'play' : targetId === `field:${own}` || target?.zone === 'field' && target.controller === own);
-    if (!destination) return invalid(card.definition.kind === 'spell' ? 'Drop this spell on Play or your empty trap slot.' : 'Drop this yokai on your field.');
+    const destination = action === 'setTrap' || (targetId === `field:${own}` || target?.zone === 'field' && target.controller === own);
+    if (!destination) return invalid(card.definition.kind === 'spell' ? 'Drop this spell onto your field or your empty trap slot.' : 'Drop this yokai on your field.');
     const reason = actionUnavailableReason(view, card, action);
     return reason ? invalid(reason) : { command: { type: action, cardId: card.id } };
   }
@@ -47,4 +47,21 @@ export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string,
     if (targetId === `player:${opponent}` && !view.players[opponent].field.length) return { command: { type: 'attack', attacker: card.id, target: null } };
   }
   return invalid();
+}
+
+/** Target choices are independent of picking up/playing a card. */
+export function resolveEffectTarget(view: GameView, draft: TableDraft, targetId: string): DropResult {
+  const source = effectSource(view); if (!source) return invalid('There is no effect to resolve.');
+  if (source.def === 'boseki') return resolveDrop(view, draft, targetId, `field:${view.decisionPlayer}`);
+  if (!decisionCandidates(view, draft).cards.some(card => card.id === targetId) && !decisionCandidates(view, draft).hiddenTrapSeats.some(seat => targetId === `trap:${seat}`)) return invalid('Choose a marked target.');
+  if (source.def === 'sake') {
+    const count = draft.allocations[targetId] ?? 0;
+    return count < allocationLimit(view, draft, targetId) ? { event: { type: 'setAllocation', id: targetId, count: count + 1 } } : invalid('This yokai cannot receive another soul.');
+  }
+  if (source.def === 'ougi') {
+    const event: DraftEvent = { type: 'toggleTarget', id: targetId, maximum: 2, ordered: true };
+    const choice = updateDraft(draft, event);
+    return canConfirmEffect(view, choice) ? { command: effectCommand(view, choice) } : { event };
+  }
+  return resolveDrop(view, draft, source.id, targetId);
 }

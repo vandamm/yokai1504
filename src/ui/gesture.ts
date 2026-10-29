@@ -1,8 +1,10 @@
 /** A second finger must never move, release or cancel the card held by the first. */
 export class DragGesture {
+  private clickSource: string | null = null;
   active: { id: string; x: number; y: number; pointerId: number; moved: boolean } | null = null;
   begin(id: string, pointerId: number, x: number, y: number): boolean {
     if (this.active) return false;
+    this.clickSource = null;
     this.active = { id, pointerId, x, y, moved: false }; return true;
   }
   move(pointerId: number, x: number, y: number) {
@@ -14,7 +16,14 @@ export class DragGesture {
   finish(pointerId: number) {
     const active = this.active;
     if (!active || active.pointerId !== pointerId) return null;
+    this.clickSource = active.moved ? active.id : null;
     this.active = null; return active;
+  }
+  shouldSuppressClick(sourceId?: string): boolean {
+    if (this.active?.moved) return true;
+    const suppress = this.clickSource !== null && this.clickSource === sourceId;
+    this.clickSource = null;
+    return suppress;
   }
   cancel(pointerId?: number): boolean {
     if (!this.active || pointerId !== undefined && pointerId !== this.active.pointerId) return false;

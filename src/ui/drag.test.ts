@@ -4,12 +4,12 @@ import { viewForLocalTesting } from '../game/views';
 import { emptyDraft } from './interaction';
 import { resolveDrop } from './drag';
 const view = () => { const v = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 })); v.turn = 3; return v; };
-it('maps a hand yokai to its field and spells only to Play or Set trap', () => {
+it('maps a hand yokai to its field and spells to the same field or Set trap', () => {
   const v = view(), yokai = v.players[0].hand!.find(c => c.definition.kind === 'yokai')!, spell = v.players[0].hand!.find(c => c.definition.kind === 'spell')!;
   expect(resolveDrop(v, emptyDraft(), yokai.id, 'field:0').command).toEqual({ type: 'play', cardId: yokai.id });
   expect(resolveDrop(v, emptyDraft(), yokai.id, 'field:1').command).toBeUndefined();
   expect(resolveDrop(v, emptyDraft(), spell.id, 'trap:0').command).toEqual({ type: 'setTrap', cardId: spell.id });
-  expect(resolveDrop(v, emptyDraft(), spell.id, 'play').command).toEqual({ type: 'play', cardId: spell.id });
+  expect(resolveDrop(v, emptyDraft(), spell.id, 'field:0').command).toEqual({ type: 'play', cardId: spell.id });
 });
 it('rejects opponent cards, full fields, no actions, and invalid targets', () => {
   const v = view(), c = v.players[0].hand!.find(c => c.definition.kind === 'yokai')!;

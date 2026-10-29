@@ -29,11 +29,13 @@ Open the HTTP URL, not `index.html` directly. Keep the terminal server running w
 
 Run `npm run dev:lan` on your computer. Connect the phone to the same trusted Wi-Fi and open the **Network** URL printed by Vite, such as `http://192.168.1.98:5173/`. Keep the computer awake and the server running. This exposes the local development game to your LAN; it does not publish an online game. Matches are saved separately in each browser and origin.
 
-The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto **Play spell** or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drag onto their health. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
+The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto the same field or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drag onto their health. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
 
-Tap cards for inspection; **Details** opens a readable modal at every width, while desktop also has a sidebar. Resolving cards can be dragged onto marked targets. Sake uses + soul to stage allocations; Jufu stages up to two targets; drag the resolving card onto **Resolve** to finish either spell. Ougi transfers a soul by dragging donor yokai onto recipient. Boseki drags a graveyard card onto your field. Keyboard users can press Space to pick up a card, focus a destination and press Space to drop; Escape cancels.
+On desktop, hold **Shift** and hover a visible card for a large inspector, including cards in a graveyard. The sidebar is reserved for public history. On phones, select a card and use **Inspect** in the top controls; **Menu → Public history** opens a side drawer.
 
-Attacks, destruction, summons, draws and soul changes animate before the accepted position appears. Public outcomes remain visible, and a player-changing result requires Continue before the private handoff. An attack ends the main phase and waits for **End turn**; it never automatically starts the next turn. Short screens scroll the battlefield independently. Pending effects save and resume after refresh.
+Pending effects show clear target choices above the table. Tap a marked card or an explicit choice to resolve Hamaya and other targeted effects. Sake uses + soul to stage allocations; Jufu selects up to two targets; **Resolve** confirms either spell. Ougi chooses donor then recipient, or drags donor onto recipient. Boseki revives a graveyard card by selection or drag.
+
+Dragged cards disappear from the hand while held. Yokai stay on the board immediately after dropping, and added souls animate in place. Attacks, destruction and draws retain visible playback; **End turn** remains explicit. Actions, Inspect, End turn and handoff controls are at the top. There is no bottom status/history bar, no empty-field frames and no visible hand-count label. Pending effects save and resume after refresh.
 
 ## Play
 
@@ -83,7 +85,7 @@ npm run build
 
 The suite covers individual card effects, combat and reactions, hidden-information projections, deterministic complete-match simulations, storage failures, save validation, duplicate/stale submissions, and undo/resume.
 
-Verified 2026-10-29: **220 tests passed across eighteen files**, TypeScript and production build passed. Browser checks cover phone drag play, trap setting/activation, Sake/Jufu, keyboard drag, + soul, explicit battle completion, private result handoffs, desktop Details, replay export/import and independent undo. Six occupied field cards fit without document overflow at eight phone/desktop viewports from 390 × 844 to 1920 × 1080. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
+Verified 2026-10-29: **224 tests passed across nineteen files**, TypeScript and production build passed. Browser checks reproduced and resolved the supplied Hamaya replay, exercised Shift inspection and its release, checked instant yokai placement and in-place soul animation, and confirmed the first allocation click after a drop is accepted. Full six-card tables fit at six phone/desktop viewports; pending Sake was checked at 390 × 844. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
 
 ## Credits
 
