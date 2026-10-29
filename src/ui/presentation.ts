@@ -1,12 +1,5 @@
 import type { GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import { allVisible } from './interaction';
-export function presentationView(before: GameView, next: GameView, openHands: boolean): GameView {
-  const view = structuredClone(next); view.decisionPlayer = before.decisionPlayer;
-  if (!openHands && before.decisionPlayer !== next.decisionPlayer) for (const player of view.players) {
-    player.hand = null; if (player.trap) player.trap = { hidden: true };
-  }
-  return view;
-}
 export interface VisualEvent { kind: 'attack' | 'death' | 'move' | 'draw' | 'damage'; from: string; to: string; card?: VisibleCard; seat?: PlayerId; amount?: number; }
 export function transitionEvents(before: GameView, after: GameView, command: GameCommand): VisualEvent[] {
   const events: VisualEvent[] = [], old = allVisible(before);

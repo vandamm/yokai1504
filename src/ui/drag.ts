@@ -1,8 +1,16 @@
-import type { GameCommand, GameView } from '../game/types';
+import type { GameCommand, GameView, VisibleCard } from '../game/types';
 import { actionUnavailableReason, allVisible, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
 import type { DraftEvent, TableDraft } from './interaction';
 export interface DropResult { command?: GameCommand; event?: DraftEvent; reason?: string; }
 const invalid = (reason = 'Drop on a highlighted destination.') => ({ reason });
+export function canDragCard(view: GameView, card: VisibleCard): boolean {
+  if (view.result || card.controller !== view.decisionPlayer) return false;
+  if (view.phase === 'main') return card.zone === 'hand' || card.zone === 'field' || card.zone === 'trap';
+  if (view.phase === 'trap') return card.zone === 'trap';
+  if (view.phase !== 'effect') return false;
+  const source = effectSource(view);
+  return card.id === source?.id || source?.def === 'ougi' && card.zone === 'field' || source?.def === 'boseki' && card.zone === 'graveyard';
+}
 export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string, targetId: string): DropResult {
   const cards = allVisible(view), card = cards.find(c => c.id === sourceId), target = cards.find(c => c.id === targetId);
   if (!card || view.result || sourceId === targetId) return invalid();

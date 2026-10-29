@@ -3,8 +3,8 @@ import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'reac
 import type { GameView } from '../game/types';
 import type { TableDraft } from './interaction';
 import { allVisible } from './interaction';
-import { resolveDrop } from './drag';
-import { publicAsset } from './assets';
+import { canDragCard, resolveDrop } from './drag';
+import { CardFace } from './CardFace';
 import { DragGesture } from './gesture';
 interface DragBindings {
   sourceId?: string;
@@ -31,7 +31,7 @@ export function DragSurface({ view, draft, disabled, onDrop, onPick, children }:
   };
   const bindings: DragBindings = {
     sourceId: drag?.id,
-    bind: id => disabled ? {} : { 'data-drag': id, 'data-drag-origin': drag?.id === id && !drag.keyboard ? 'true' : undefined, onKeyDown: event => keyboard(id, !!drag?.keyboard, event), onPointerDown: event => {
+    bind: id => disabled || !cards.some(card => card.id === id && canDragCard(view, card)) ? {} : { 'data-drag': id, 'data-drag-origin': drag?.id === id && !drag.keyboard ? 'true' : undefined, onKeyDown: event => keyboard(id, !!drag?.keyboard, event), onPointerDown: event => {
       if (event.shiftKey || event.button !== 0 || !pointer.current.begin(id, event.pointerId, event.clientX, event.clientY)) return;
       event.currentTarget.setPointerCapture(event.pointerId);
     } },
@@ -50,6 +50,6 @@ export function DragSurface({ view, draft, disabled, onDrop, onPick, children }:
   }} onPointerCancel={event => { if (pointer.current.cancel(event.pointerId)) reset(); }} onLostPointerCapture={event => { if (pointer.current.cancel(event.pointerId)) reset(); }}>
     {children}
     {drag && <span className="sr-only" role="status">{card?.definition.name} picked up. Drop on a highlighted destination. Escape cancels.</span>}
-    {drag && !drag.keyboard && card && <div className="drag-ghost" aria-hidden="true" style={{ left: drag.x, top: drag.y } as CSSProperties}><img src={publicAsset(`cards/${card.def}.png`)} alt="" draggable={false} /></div>}
+    {drag && !drag.keyboard && card && <div className="drag-ghost" aria-hidden="true" style={{ left: drag.x, top: drag.y } as CSSProperties}><CardFace card={card} allocation={draft.allocations[card.id] ?? 0} /></div>}
   </div></DragContext.Provider>;
 }

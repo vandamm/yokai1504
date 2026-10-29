@@ -71,3 +71,12 @@ it('loads card faces, hidden backs and soul icons beneath the deployed base URL'
   expect(html).toContain('src="/yokai1504/icons/soul.svg"');
   expect(html).not.toMatch(/src="\/(cards|icons)\//);
 });
+
+it('places local turn controls below the near player health', () => {
+  const view = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
+  const html = renderToStaticMarkup(<Table view={view} openHands targetIds={[]} chosenTargets={[]} allocations={{}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} turnControls={<button>Undo test</button>} />);
+  const near = html.slice(html.indexOf('class="bottom-hand'));
+  expect(near.indexOf('data-health-seat')).toBeLessThan(near.indexOf('Undo test'));
+  expect(near.indexOf('Undo test')).toBeLessThan(near.indexOf('class="hand-window"'));
+  expect(html.match(/Undo test/g)).toHaveLength(1);
+});

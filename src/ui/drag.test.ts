@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { createGame } from '../game/engine';
 import { viewForLocalTesting } from '../game/views';
 import { emptyDraft } from './interaction';
-import { resolveDrop } from './drag';
+import { canDragCard, resolveDrop } from './drag';
 const view = () => { const v = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 })); v.turn = 3; return v; };
 it('maps a hand yokai to its field and spells to the same field or Set trap', () => {
   const v = view(), yokai = v.players[0].hand!.find(c => c.definition.kind === 'yokai')!, spell = v.players[0].hand!.find(c => c.definition.kind === 'spell')!;
@@ -22,4 +22,20 @@ it('declares attacks by dropping a field yokai on a defender or an empty-field p
   expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toBeUndefined();
   v.players[1].field = []; expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toEqual({ type: 'attack', attacker: a.id, target: null });
   v.phase = 'turnEnd'; expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toBeUndefined();
+});
+
+it('only picks up the decision player’s cards, including when both hands are open', () => {
+  const v=view();
+  expect(canDragCard(v,v.players[0].hand![0])).toBe(true);
+  expect(canDragCard(v,v.players[1].hand![0])).toBe(false);
+  const enemy=v.players[1].hand![0]; enemy.zone='field'; v.players[1].field=[enemy];
+  expect(canDragCard(v,enemy)).toBe(false);
+  v.phase='trap'; v.decisionPlayer=1; enemy.zone='trap'; v.players[1].trap=enemy;
+  expect(canDragCard(v,enemy)).toBe(true);
+  expect(canDragCard(v,v.players[0].hand![0])).toBe(false);
+});
+it('casts a set spell by dragging it into the shared play area on your turn', () => {
+  const v=view(), spell=v.players[0].hand!.find(c=>c.definition.kind==='spell')!;
+  spell.zone='trap'; v.players[0].trap=spell;
+  expect(resolveDrop(v,emptyDraft(),spell.id,'field:0').command).toEqual({type:'play',cardId:spell.id});
 });

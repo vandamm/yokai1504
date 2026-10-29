@@ -4,7 +4,7 @@ A local two-player implementation of Yokai 1504. Both players use the same brows
 
 ## Play online
 
-[Open Yokai 1504](https://vandamm.github.io/yokai1504/). Both players share one device; private handoffs, open-hands testing and undo work in the hosted version. Matches stay in the browser you use, separately from local development saves.
+[Open Yokai 1504](https://vandamm.github.io/yokai1504/). Local testing uses one device with undo and optional open hands. Online multiplayer is planned. Matches stay in the browser you use, separately from local development saves.
 
 ## Deployment
 
@@ -31,17 +31,17 @@ Run `npm run dev:lan` on your computer. Connect the phone to the same trusted Wi
 
 The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto the same field or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drag onto their health. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
 
-On desktop, hold **Shift** and hover a visible card for a large inspector, including cards in a graveyard. The sidebar is reserved for public history. On phones, select a card and use **Inspect** in the top controls; **Menu → Public history** opens a side drawer.
+On desktop, hold **Shift** and hover a visible card for a large inspector, including cards in a graveyard. The sidebar shows the current turn above history grouped by round and player. Underlined card names show a reference tooltip on hover or keyboard focus, or open details when tapped. On phones, select a card and use **Inspect** beneath the current player’s health; **Menu → Public history** opens a side drawer.
 
-Pending effects show clear target choices above the table. Tap a marked card or an explicit choice to resolve Hamaya and other targeted effects. Sake uses + soul to stage allocations; Jufu selects up to two targets; **Resolve** confirms either spell. Ougi chooses donor then recipient, or drags donor onto recipient. Boseki revives a graveyard card by selection or drag.
+Pending effects show clear target choices above the table. Tap a marked card or an explicit choice to resolve Hamaya and other targeted effects. Sake uses + soul to stage allocations; Jufu selects up to two targets; **Resolve** confirms either spell. Ougi chooses donor then recipient, or drags your donor onto a recipient. Opposing cards remain selectable targets but cannot be picked up. Boseki revives a graveyard card by selection or drag.
 
-Dragged cards disappear from the hand while held. Yokai stay on the board immediately after dropping, and added souls animate in place. Attacks, destruction and draws retain visible playback; **End turn** remains explicit. Actions, Inspect, End turn and handoff controls are at the top. There is no bottom status/history bar, no empty-field frames and no visible hand-count label. Pending effects save and resume after refresh.
+Dragged cards disappear from the hand while held. Yokai stay on the board immediately after dropping, and added souls animate in place. Attacks, destruction and draws retain visible playback; **End turn** remains explicit. Actions, Undo, Inspect and End turn sit beneath the decision player’s health. Trap response instructions appear below the table. There are no selection arrows, empty-field frames or visible hand-count labels. Drag previews retain live attack and souls; casting highlights the whole own field. Pending effects save and resume after refresh.
 
 ## Play
 
 Start Game prepares the table, shuffles both decks, deals four cards each, and takes the starting player's mandatory first draw. Drag cards to play or attack; use Details to inspect visible cards during targeting. Play cards and evoke souls up to a combined two times per main phase; releases and setting a trap have their own rules. Attack with one yokai or end the turn without attacking.
 
-Private play uses a handoff curtain whenever the decision maker changes. Open hands (testing) shows both hands and traps and skips those curtains; it preserves game rules and response choices. It does not reveal deck order. The mode can be changed during a local match.
+Local play is for testing and has no pass screen or reveal step. Open hands is enabled by default and shows both hands and traps. Switching it off shows only the decision player’s hand and trap; the table stays visible when decisions change players. Neither option reveals deck order.
 
 Undo restores the last accepted action and all of its consequences, including draws, damage, costs, and turn/response changes. Repeat undo to go back further. Undo history and the match save automatically in this browser. Undo cannot erase information players already saw. Starting a new match replaces the current local save.
 
@@ -49,7 +49,7 @@ Undo restores the last accepted action and all of its consequences, including dr
 
 Choose **Menu → Export replay** to download a versioned JSON file containing the initial position, reproducible active command sequence, final position and accepted-action audit, including undo branches and mode changes. The file includes both hands and deck order.
 
-Choose **Import replay** from setup or the table menu. Load the JSON file or paste it, optionally choose an action number, then open it in a new session. The importer validates and re-executes every command before creating an independent save in a new tab. Undo can inspect earlier accepted positions without changing the original match. Older saves with automatic post-battle turns export with explicit End turn steps.
+Choose **Import replay** from setup or the table menu. Load the JSON file or paste it, optionally choose an action number, then open it in a new session. The importer validates and re-executes every command before creating an independent save in a new tab. Undo can inspect earlier accepted positions without changing the original match. Older saves with automatic post-battle turns export with explicit End turn steps. Historic unusable-trap response pauses also remain reproducible.
 
 ## Architecture and future online play
 
@@ -70,7 +70,7 @@ The English rulebook and designer's bilingual cards govern this implementation. 
 - Nurikabe's summon-turn restriction applies while it remains on that controller's field. Control exchange is not summoning.
 - Rokurokubi draws only on actual opposing battle destruction, using possession at battle time, including a tied battle where it is also destroyed.
 - Borrowed yokai return to their original owner's graveyard. Battle damage and effects use their current controller.
-- An exact-count effect needs a legal target; an "up to" effect can select zero. Revived yokai have zero souls.
+- An exact-count effect needs a legal target; an "up to" effect can select zero. Attacks skip unusable traps using the same activation requirements as casting. You can cast your previously set trap during your own main phase for one action. Revived yokai have zero souls.
 
 The current catalog cannot prevent mandatory empty-deck damage or replenish decks, so normal passing eventually finishes the game. No arbitrary repeated-position or turn-count stalemate rule is added.
 
@@ -85,7 +85,7 @@ npm run build
 
 The suite covers individual card effects, combat and reactions, hidden-information projections, deterministic complete-match simulations, storage failures, save validation, duplicate/stale submissions, and undo/resume.
 
-Verified 2026-10-29: **224 tests passed across nineteen files**, TypeScript and production build passed. Browser checks reproduced and resolved the supplied Hamaya replay, exercised Shift inspection and its release, checked instant yokai placement and in-place soul animation, and confirmed the first allocation click after a drop is accepted. Full six-card tables fit at six phone/desktop viewports; pending Sake was checked at 390 × 844. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
+Verified 2026-10-29: **235 tests passed across twenty files**, TypeScript and production build passed. Browser checks covered turn changes without handoffs, undo across turn/trap/effect decisions, history tooltips, whole-side casting highlights and in-place soul allocation. Six played cards and controls fit at six phone/desktop viewports without document overflow. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
 
 ## Credits
 

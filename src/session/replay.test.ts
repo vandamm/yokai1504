@@ -54,3 +54,25 @@ it('reconstructs an older save where combat automatically began the next turn', 
   const other = new LocalSession(new Storage(), () => 'migrated');
   expect((await other.importReplay(raw)).view).toEqual((await session.getSnapshot()).view);
 });
+
+it('preserves old replay pauses for an unusable trap, including export after importing', async () => {
+  const { createGame, applyCommand }=await import('../game/engine');
+  const initial=createGame({seed:42,startingPlayer:0}); initial.turn=3;
+  const relocate=(def:string,owner:0|1,zone:'field'|'trap')=>{
+    const card=Object.values(initial.cards).find(c=>c.def===def && c.owner===owner)!;
+    const p=initial.players[owner]; p.hand=p.hand.filter(id=>id!==card.id); p.deck=p.deck.filter(id=>id!==card.id);
+    if(zone==='trap') p.trap=card.id; else p.field.push(card.id); return card.id;
+  };
+  const attacker=relocate('kappa',0,'field'); relocate('boseki',1,'trap');
+  const attack={type:'attack' as const,attacker,target:null};
+  // This is the historical state before unusable traps were skipped automatically.
+  const paused=structuredClone(initial); paused.phase='trap'; paused.decisionPlayer=1;
+  paused.pending={kind:'trap',actor:1,attacker,target:null}; paused.history.push('Player 1 attacks with Kappa directly.');
+  const final=applyCommand(paused,1,{type:'respond',activate:false});
+  const file={format:'yokai1504-replay',version:1,initial,final,openHands:true,audit:[],actions:[{actor:0,command:attack},{actor:1,command:{type:'respond',activate:false}}]};
+  const session=new LocalSession(new Storage(),()=> 'legacy-trap');
+  expect((await session.importReplay(JSON.stringify(file))).view.phase).toBe('turnEnd');
+  const other=new LocalSession(new Storage(),()=> 'again');
+  expect((await other.importReplay(await session.exportReplay())).view).toEqual((await session.getSnapshot()).view);
+  expect((await other.importReplay(JSON.stringify(file),1)).view.phase).toBe('trap');
+});

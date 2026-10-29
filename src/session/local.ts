@@ -323,7 +323,7 @@ export class LocalSession {
       let found: ReplayAction[] | undefined;
       for (const { actor, command } of candidates) {
         try {
-          let next = applyCommand(before, actor, command);
+          let next = applyCommand(before, actor, command, positions[index + 1].phase === 'trap');
           const steps = [{ actor, command }];
           // Older saves started the next turn immediately after combat.
           if (next.phase === 'turnEnd' && positions[index + 1].turn === next.turn + 1) {
@@ -352,12 +352,13 @@ export class LocalSession {
     let state = copy(file.initial);
     const checkpoints: Position[] = [], receipts: Receipt[] = [];
     const matchId = this.makeId(); check(text(matchId), 'Could not create a match ID.');
-    for (const action of file.actions) {
+    for (const [index, action] of file.actions.entries()) {
       check(object(action), 'Invalid replay action.'); keys(action, ['actor', 'command']);
       check(player(action.actor), 'Invalid replay actor.'); validateCommand(action.command);
       const { history, ...position } = state;
       checkpoints.push({ ...position, historyLength: history.length });
-      state = applyCommand(state, action.actor, action.command); validateGame(state);
+      const recordedResponse = file.actions[index + 1]?.command?.type === 'respond' || index === file.actions.length - 1 && file.final.phase === 'trap';
+      state = applyCommand(state, action.actor, action.command, recordedResponse); validateGame(state);
       const revision = receipts.length;
       receipts.push({ commandId: `replay-${revision}`, acceptedRevision: revision + 1, payload: canonical({ matchId, expectedRevision: revision, actor: action.actor, command: action.command }) });
     }

@@ -39,3 +39,11 @@ it.each(['trap', 'effect'] as const)('does not attribute the attacker’s main a
     : { kind: 'effect', actor: 1, cardId: view.players[1].hand![0].id, source: 'trap', attack: null };
   expect(render(view)).not.toMatch(/aria-label="\d main actions? left"/);
 });
+
+it('keeps Undo beside End turn with a drawn arrow and no extra action cost', () => {
+  const html=renderToStaticMarkup(<TurnControls view={position()} draft={emptyDraft()} busy={false} onCommand={()=>{}} onDetails={()=>{}} onUndo={()=>{}} canUndo />);
+  expect(html).toContain('class="turn-buttons"');
+  expect(html).toContain('<svg');
+  expect(html).toContain('Undo');
+  expect(html).toContain('End turn');
+});

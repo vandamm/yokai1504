@@ -165,10 +165,11 @@ describe('combat and timing', () => {
     const s=fixture(), a=put(s,'kappa',0,'field',2); const n=act(s,{type:'attack',attacker:a,target:null}); expect(n.players[1].health).toBe(9);
     put(s,'tengu',1); expect(() => act(s,{type:'attack',attacker:a,target:null})).toThrow();
   });
-  it('waits for trap response even when its exact effect is unusable; decline is always valid', () => {
-    const s=fixture(), a=put(s,'kappa',0), trap=put(s,'boseki',1,'trap'); const n=act(s,{type:'attack',attacker:a,target:null});
-    expect(n.phase).toBe('trap'); expect(n.decisionPlayer).toBe(1); expect(n.pending?.kind).toBe('trap'); expect(canActivate(n,trap,'trap')).toBe(false);
-    expect(() => act(n,{type:'respond',activate:true})).toThrow(); const d=act(n,{type:'respond',activate:false}); expect(d.players[1].trap).toBe(trap); expect(d.players[1].health).toBe(13); expect(d.turnPlayer).toBe(0); expect(d.phase).toBe('turnEnd');
+  it('skips an unusable trap and resolves battle without revealing it', () => {
+    const s=fixture(), a=put(s,'kappa',0), trap=put(s,'boseki',1,'trap');
+    const n=act(s,{type:'attack',attacker:a,target:null});
+    expect(n.phase).toBe('turnEnd'); expect(n.pending).toBeNull();
+    expect(n.players[1].trap).toBe(trap); expect(n.players[1].health).toBe(13); invariant(n);
   });
   it('persists spell choice and attack continuation, then cancels attack if attacker destroyed', () => {
     const s=fixture(), a=put(s,'tengu',0), trap=put(s,'hamaya',1,'trap');
@@ -236,5 +237,28 @@ describe('combat and timing', () => {
   });
   it('full deterministic matches preserve all cards/souls and terminate with empty-deck damage', () => {
     for(let seed=0;seed<30;seed++) { let a=createGame({seed}), b=createGame({seed}); for(let i=0;i<60 && !a.result;i++){a=act(a,{type:'endTurn'}); b=act(b,{type:'endTurn'}); invariant(a); expect(a).toEqual(b);} expect(a.phase).toBe('finished'); }
+  });
+});
+
+
+describe('trap casting requirements at attack declaration', () => {
+  it.each(['boseki', 'ougi', 'hamaya'] as const)('skips an unusable %s trap without exposing or spending it', def => {
+    const s=fixture();
+    const a=put(s,'zashiki-warashi',0,'field',1);
+    const b=put(s,'zashiki-warashi',1,'field',1);
+    if(def==='boseki') { put(s,'kappa',1); put(s,'tengu',1); put(s,'nurikabe',0,'graveyard'); }
+    const trap=put(s,def,1,'trap');
+    const n=act(s,{type:'attack',attacker:a,target:b});
+    expect(n.phase).toBe('turnEnd'); expect(n.pending).toBeNull();
+    expect(n.players[1].trap).toBe(trap);
+    expect(n.history.join(' ')).not.toContain(CARDS[def].name);
+    expect(n.history.join(' ')).not.toContain('declines'); invariant(n);
+  });
+  it.each(['boseki', 'ougi', 'hamaya', 'sake', 'jufu', 'kozuchi'] as const)('offers a legal %s trap', def => {
+    const s=fixture(), a=put(s,'kappa',0,'field',1), b=put(s,'tengu',1);
+    put(s,'nurikabe',1,'graveyard'); put(s,def,1,'trap');
+    const n=act(s,{type:'attack',attacker:a,target:b});
+    expect(n.phase).toBe('trap'); expect(n.decisionPlayer).toBe(1);
+    expect(canActivate(n,n.players[1].trap!,'trap')).toBe(true); invariant(n);
   });
 });

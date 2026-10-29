@@ -234,7 +234,7 @@ export function createGame(options: SetupOptions): GameState {
   }
   beginMain(state); return state;
 }
-export function applyCommand(state: GameState, actor: PlayerId, command: GameCommand): GameState {
+export function applyCommand(state: GameState, actor: PlayerId, command: GameCommand, recordedTrapResponse = false): GameState {
   requireRule(actor===0 || actor===1,'Choose a valid player.');
   requireRule(state.phase!=='finished' && !state.result,'The game has finished.');
   requireRule(actor===state.decisionPlayer,'The other player must make this decision.');
@@ -277,8 +277,13 @@ export function applyCommand(state: GameState, actor: PlayerId, command: GameCom
       const enemy=next.players[other(actor)]; requireRule(enemy.field.length>0 ? typeof command.target==='string' && enemy.field.includes(command.target) : command.target===null,'Choose an opposing yokai, or attack directly when its field is empty.');
       const attack={attacker:command.attacker,target:command.target};
       next.history.push(`${player.name} attacks with ${CARDS[card(next,attack.attacker).def].name}${attack.target ? ` against ${CARDS[card(next,attack.target).def].name}` : ' directly'}.`);
-      if(enemy.trap) { next.phase='trap'; next.decisionPlayer=other(actor); next.pending={kind:'trap',actor:other(actor),...attack}; }
-      else resolveAttack(next,attack);
+      if(enemy.trap) {
+        next.phase='trap'; next.decisionPlayer=other(actor); next.pending={kind:'trap',actor:other(actor),...attack};
+        // Recorded games may include the older pause for an unusable trap.
+        if(recordedTrapResponse || canActivate(next,enemy.trap,'trap')) break;
+        next.decisionPlayer=actor;
+      }
+      resolveAttack(next,attack);
       break;
     }
     case 'endTurn': endTurn(next); break;

@@ -1,3 +1,16 @@
+# Local testing table and trap requirements — 2026-10-29
+
+- Removed pass/reveal/hide-table screens and actor-change Continue steps. New games default to open hands; an imported closed-hand replay also resumed immediately without a curtain. Existing player projections remain available for future online play.
+- Turn and phase head the desktop history rail, separated from round/player subheadings. Card names are highlighted and underlined; the existing large inspector appears on history hover or focus. Phone history remains a drawer. Actions, Undo and End turn sit beneath near-player health; phone Undo has an accessible icon and End turn stays on one line.
+- Trap instructions appear beneath the near hand. At 390 × 844 the prompt occupied y730–844 with all four cards visible. Its unwanted arrow markers have no generated content. Hamaya activated, destroyed Yuki-onna by target tap, cancelled the attack and returned to explicit End turn without a pass/review screen. Undo restored both the effect and preceding trap response.
+- Shared CardFace renders live attack and soul slots for drag previews. Only the decision player’s cards bind as drag sources; opponents remain legal targets. Keyboard pickup of Sake highlighted the full own field (1104px wide at 1440), including occupied destinations. One soul allocated to Tengu appeared in place and raised its attack to 5; a subsequent evoke raised it to 6.
+- Trap availability uses canActivate with the prospective defender’s decision state. Full-field Boseki, no-donor Ougi and fully immune highest-attack Hamaya skip responses without exposing or spending the trap. Legal traps, including zero-target up-to effects, still pause. Old replay pauses and export/import round trips have regression coverage.
+- Six-card layouts checked at 375 × 667, 390 × 844, 430 × 932, 1024 × 768, 1280 × 650 and 1440 × 900: zero document horizontal overflow, all six cards inside the battlefield and 44px-high Undo/End turn controls visible.
+- 235 tests across 20 files pass; TypeScript, production build and whitespace checks pass. The action/effect audit covers 96 matches and the deterministic simulation covers 24 full games. Fresh code review found stale README handoff wording, now corrected.
+- Physical iPhone/Android touch behavior remains unverified. Pointer drag preview uses the shared card renderer and has regression coverage; no new physical-device test was performed.
+
+---
+
 # Table cleanup and Hamaya replay — 2026-10-29
 
 - Reproduced the supplied turn-3 replay in an independent session: Hamaya was legally pending a highest-attack target, but tapping marked Yuki-onna only inspected it. Tapping the target now resolves the spell, destroys Yuki-onna, cancels the attack and enables End turn. Explicit target buttons provide the same continuation. A sanitized regression test covers that position without publishing the user replay.

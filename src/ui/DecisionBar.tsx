@@ -9,13 +9,14 @@ interface Props {
   view: GameView; draft: TableDraft; busy: boolean; onDraft: (event: DraftEvent) => void;
   onCommand: (command: GameCommand) => void; onDetails: (card?: VisibleCard) => void; onUnavailable?: (reason: string) => void;
 }
-export function TurnControls({ view, draft, busy, onCommand, onDetails, showInspect = false }: Omit<Props, 'onDraft'> & { showInspect?: boolean }) {
+export function TurnControls({ view, draft, busy, onCommand, onDetails, showInspect = false, onUndo, canUndo = false }: Omit<Props, 'onDraft'> & { showInspect?: boolean; onUndo?: () => void; canUndo?: boolean }) {
   const remaining = 2 - view.actionsUsed;
   const selected = allVisible(view).find(card => card.id === draft.selectedId) ?? effectSource(view);
   return <div className="turn-controls" aria-label="Turn controls">
     {view.phase === 'main' && <span className={`action-budget ${remaining === 0 ? 'exhausted' : ''}`} role="status" aria-label={`${remaining} main ${remaining === 1 ? 'action' : 'actions'} left`}><strong>{remaining}</strong><span>{remaining === 1 ? 'action' : 'actions'} left</span><span className="action-pips" aria-hidden="true">{[0, 1].map(i => <i key={i} className={i < remaining ? '' : 'used'} />)}</span></span>}
     {showInspect && selected && <button type="button" className="text-button" onClick={() => onDetails(selected)}>Inspect</button>}
-    {(view.phase === 'main' || view.phase === 'turnEnd') && <button type="button" className={view.phase === 'turnEnd' ? 'primary' : 'secondary'} disabled={busy} onClick={() => onCommand({ type: 'endTurn' })}>End turn</button>}
+    <div className="turn-buttons">{onUndo && <button type="button" className="undo-button" aria-label="Undo" disabled={busy || !canUndo} onClick={onUndo}><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4 4 9l5 5M4 9h9a7 7 0 0 1 0 14" transform="translate(0 -2)" /></svg><span>Undo</span></button>}
+    {(view.phase === 'main'  || view.phase === 'turnEnd') && <button type="button" className={view.phase === 'turnEnd' ? 'primary' : 'secondary'} disabled={busy} onClick={() => onCommand({ type: 'endTurn' })}>End turn</button>}</div>
   </div>;
 }
 

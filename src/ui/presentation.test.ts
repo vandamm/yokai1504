@@ -1,14 +1,7 @@
 import { expect, it } from 'vitest';
 import { createGame } from '../game/engine';
-import { viewForLocalTesting, viewForPlayer } from '../game/views';
-import { presentationView, transitionEvents } from './presentation';
-it('never exposes the incoming player’s private identities during a handoff preview', () => {
-  const state = createGame({ seed: 42, startingPlayer: 0 }), before = viewForPlayer(state, 0);
-  state.decisionPlayer = state.turnPlayer = 1; const next = viewForPlayer(state, 1);
-  const preview = presentationView(before, next, false);
-  expect(preview.decisionPlayer).toBe(0); expect(preview.players.map(p => p.hand)).toEqual([null, null]);
-  for (const card of next.players[1].hand!) expect(JSON.stringify(preview)).not.toContain(card.id);
-});
+import { viewForLocalTesting } from '../game/views';
+import { transitionEvents } from './presentation';
 it('identifies destruction, damage and soul returns without hidden card definitions', () => {
   const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
   const yokai = before.players[0].hand![0]; yokai.zone = 'field'; yokai.souls = 1; before.players[0].field = [yokai];

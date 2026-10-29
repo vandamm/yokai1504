@@ -2,16 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CARDS } from '../game/catalog';
-import type { CardDefinition, GameCommand, PlayerId, VisibleCard } from '../game/types';
+import type { CardDefId, CardDefinition, GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import { LocalSession, SAVE_KEY } from '../session/local';
 import { DragSurface } from './DragSurface';
 import { useTableDrag } from './DragSurface';
 import { resolveDrop, resolveEffectTarget } from './drag';
-import { presentationView, transitionEvents } from './presentation';
+import { transitionEvents } from './presentation';
 import { Playback, captureGeometry } from './Playback';
 import type { Geometry } from './Playback';
 import type { SessionSnapshot } from '../session/local';
-import { privacyAfterSnapshot } from './privacy';
 import { createId } from '../session/id';
 import { Table, CardFace } from './Table';
 import { DecisionBar, TurnControls } from './DecisionBar';
@@ -19,6 +18,7 @@ import { allVisible, allocationLimit, decisionCandidates, effectSource, emptyDra
 import type { DraftEvent } from './interaction';
 import { inspectionLabel, inspectionPosition } from './inspection';
 import { publicAsset } from './assets';
+import { PublicHistory } from './PublicHistory';
 
 const secureNumber = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const imagePath = (id: string) => publicAsset(`cards/${id}.png`);
@@ -47,7 +47,7 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
       </ol>
       <h3>Souls & battle</h3><p>Each attached soul adds one attack, up to the card’s cap. Kappa gains another one attack per soul. Possession effects require at least one soul; passive effects are always active on the field. Release effects spend one attached soul.</p>
       <p>The weaker yokai is destroyed, and its controller takes the attack difference as damage. Ties destroy both without damage. A direct attack deals the attacker’s attack. Destroyed cards go to their original owner’s graveyard; all their souls return to the shared pool.</p>
-      <h3>Sharing this screen</h3><p>Private play hides the table whenever the decision changes player. Pass the device before revealing. Open hands is a local testing mode that exposes both hands and traps. It still requires the correct player to make every decision.</p>
+      <h3>Local testing</h3><p>Play both sides on this device. Open hands shows both hands and traps; switching it off shows only the decision player’s hand. The table stays visible between decisions.</p>
       <p>Undo restores the position before the last action, including automatic draws and damage. It cannot remove knowledge of cards you have seen. The match saves automatically in this browser.</p>
     </div>}
     {tab === 'cards' && <><p className="muted">One of each card belongs to each player’s deck. Select any card for readable text.</p><div className="reference-grid">{Object.values(CARDS).map(card => <button type="button" key={card.id} onClick={() => onInspect(card)}><img src={imagePath(card.id)} alt={card.name} loading="lazy" /><span>{card.name}</span></button>)}</div><p className="small muted">Card art and text from the designer’s official bilingual cards.</p></>}
@@ -69,7 +69,7 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
 function Setup({ onStart, busy, onRules }: { onStart: (names: [string, string], starter: PlayerId | undefined, openHands: boolean) => void; busy: boolean; onRules: () => void }) {
   const [names, setNames] = useState<[string, string]>(['', '']);
   const [starter, setStarter] = useState('random');
-  const [openHands, setOpenHands] = useState(false);
+  const [openHands, setOpenHands] = useState(true);
   return <main className="welcome"><section className="setup-panel">
     <h1>Yokai 1504</h1><p>Two players, one table. Reduce your rival’s 15 health to zero.</p>
     <form onSubmit={event => { event.preventDefault(); onStart([names[0].trim() || 'Player 1', names[1].trim() || 'Player 2'], starter === 'random' ? undefined : Number(starter) as PlayerId, openHands); }}>
@@ -77,7 +77,7 @@ function Setup({ onStart, busy, onRules }: { onStart: (names: [string, string], 
       <label className="starter-label">First turn<select value={starter} onChange={event => setStarter(event.target.value)}><option value="random">Choose at random</option><option value="0">{names[0].trim() || 'Player 1'}</option><option value="1">{names[1].trim() || 'Player 2'}</option></select></label>
       <label className="check-label"><input type="checkbox" checked={openHands} onChange={event => setOpenHands(event.target.checked)} /><span>Open hands <small>Show both hands and traps for testing</small></span></label>
       <button type="submit" className="primary start-button" disabled={busy}>{busy ? 'Preparing…' : 'Start game'}</button>
-    </form><button type="button" className="text-button" onClick={onRules}>Rules & cards</button><p className="setup-note">Private hotseat by default. Auto-saved in this browser.</p>
+    </form><button type="button" className="text-button" onClick={onRules}>Rules & cards</button><p className="setup-note">Local testing. Auto-saved in this browser.</p>
   </section></main>;
 }
 
@@ -96,10 +96,8 @@ function GraveyardTarget({ card, selected, onInspect }: { card: VisibleCard; sel
   return <button type="button" {...drag.bind(card.id)} data-card-id={card.id} aria-label={`Drag ${card.definition.name} from the graveyard`} aria-pressed={selected} onClick={onInspect}><CardFace card={card} /><span>{card.definition.name}</span></button>;
 }
 
-function PublicHistory({ entries }: { entries: string[] }) {
-  const list = useRef<HTMLOListElement>(null);
-  useEffect(() => { if (list.current) list.current.scrollTop = list.current.scrollHeight; }, [entries.length]);
-  return <ol className="public-history-list" ref={list}>{entries.map((entry, index) => <li key={index}>{entry}</li>)}</ol>;
+function TurnSummary({ view, openHands }: { view: GameView; openHands: boolean }) {
+  return <div className="turn-summary"><span>Turn {Math.ceil(view.turn / 2)} · {view.players[view.turnPlayer].name}</span>{view.phase !== 'main' && <strong>{view.result ? `${view.result.winner === null ? 'Draw' : view.players[view.result.winner].name + ' wins'}` : view.phase === 'trap' ? 'Trap response' : view.phase === 'turnEnd' ? 'Attack complete' : 'Resolve effect'}</strong>}{openHands && <span className="mode-label">Open hands</span>}</div>;
 }
 
 export function App() {
@@ -112,7 +110,6 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [curtain, setCurtain] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [menu, setMenu] = useState(false);
   const [history, setHistory] = useState(false);
@@ -126,13 +123,13 @@ export function App() {
   let replayCount: number | undefined;
   try { const count = JSON.parse(replayText).actions?.length; if (Number.isSafeInteger(count) && count >= 0) replayCount = count; } catch { /* The importer reports invalid files on submission. */ }
   const [replayError, setReplayError] = useState<string>();
-  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command: GameCommand; geometry: Geometry; done: boolean }>();
+  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command: GameCommand; geometry: Geometry }>();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [inspectionId, setInspectionId] = useState<string>();
   const rail = useMediaQuery('(min-width: 1280px) and (min-height: 650px)');
   const desktop = useMediaQuery('(min-width: 900px)');
   const [shiftHeld, setShiftHeld] = useState(false);
-  const [hovered, setHovered] = useState<{ id: string; left: number; right: number; top: number }>();
+  const [hovered, setHovered] = useState<{ id?: string; def?: CardDefId; left: number; right: number; top: number }>();
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => { if (event.key === 'Shift') setShiftHeld(true); };
     const keyUp = (event: KeyboardEvent) => { if (event.key === 'Shift') setShiftHeld(false); };
@@ -140,39 +137,33 @@ export function App() {
     window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp); window.addEventListener('blur', clear); window.addEventListener('resize', clear);
     return () => { window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', clear); window.removeEventListener('resize', clear); };
   }, []);
-  const clearPrivateUI = () => { setDraft(emptyDraft()); setInspectionId(undefined); setDetailsOpen(false); setReference(null); setGraveyard(null); setMenu(false); setHistory(false); setRules(false); setNotice(null); setHovered(undefined); };
-  const adopt = (next: SessionSnapshot, forcePrivacy = false) => {
-    const previous = snapshotRef.current;
-    clearPrivateUI();
-    setCurtain(wasHidden => privacyAfterSnapshot({ wasHidden, openHands: next.openHands, previousActor: previous?.view.decisionPlayer, nextActor: next.view.decisionPlayer, forcePrivacy }));
+  const resetTableUI = () => { setDraft(emptyDraft()); setInspectionId(undefined); setDetailsOpen(false); setReference(null); setGraveyard(null); setMenu(false); setHistory(false); setRules(false); setNotice(null); setHovered(undefined); };
+  const adopt = (next: SessionSnapshot) => {
+    resetTableUI();
     snapshotRef.current = next;
     setSnapshot(next);
   };
-  useEffect(() => { let live = true; session.load().then(saved => { if (live && saved) adopt(saved, true); }).catch(reason => { if (live) setError(errorMessage(reason)); }).finally(() => { if (live) setLoading(false); }); return () => { live = false; }; }, [session]);
-  const perform = async (work: () => Promise<SessionSnapshot>, forcePrivacy = false) => {
+  useEffect(() => { let live = true; session.load().then(saved => { if (live && saved) adopt(saved); }).catch(reason => { if (live) setError(errorMessage(reason)); }).finally(() => { if (live) setLoading(false); }); return () => { live = false; }; }, [session]);
+  const perform = async (work: () => Promise<SessionSnapshot>) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null);
-    try { adopt(await work(), forcePrivacy); } catch (reason) { setError(errorMessage(reason)); }
+    try { adopt(await work()); } catch (reason) { setError(errorMessage(reason)); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean) => void perform(() => session.start({ seed: secureNumber(), names, startingPlayer, openHands }), true);
+  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean) => void perform(() => session.start({ seed: secureNumber(), names, startingPlayer, openHands }));
   const submit = async (command: GameCommand) => {
-    const before = snapshotRef.current; if (!before || curtain || busyRef.current) return;
+    const before = snapshotRef.current; if (!before || busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null); setHovered(undefined);
     const geometry = captureGeometry();
     try {
       const next = await session.submit({ matchId: before.matchId, commandId: createId(), expectedRevision: before.revision, actor: before.view.decisionPlayer, command });
       const events = transitionEvents(before.view, next.view, command);
-      if (!events.length && before.view.decisionPlayer === next.view.decisionPlayer) acceptPlayback(next);
-      else setPlayback({ before, next, command, geometry, done: !events.length });
+      if (!events.length) acceptPlayback(next);
+      else setPlayback({ before, next, command, geometry });
     } catch (reason) { setError(errorMessage(reason)); busyRef.current = false; setBusy(false); }
   };
   const acceptPlayback = (next: SessionSnapshot) => { adopt(next); setPlayback(undefined); busyRef.current = false; setBusy(false); };
-  const finishPlayback = () => {
-    if (!playback) return;
-    if (playback.before.view.decisionPlayer !== playback.next.view.decisionPlayer) setPlayback({ ...playback, done: true });
-    else acceptPlayback(playback.next);
-  };
+  const finishPlayback = () => { if (playback) acceptPlayback(playback.next); };
   const exportReplay = async () => {
     try { const raw = await session.exportReplay(); const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = `yokai1504-turn-${snapshotRef.current?.view.turn}.json`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); setNotice('Replay exported. It includes both hands and deck order.'); setMenu(false); }
     catch (reason) { setError(errorMessage(reason)); }
@@ -188,10 +179,9 @@ export function App() {
     } catch (reason) { setReplayError(errorMessage(reason)); }
   };
   const undo = () => { const before = snapshotRef.current; if (before) void perform(() => session.undo(before.revision)); };
-  const toggleOpenHands = (value: boolean) => { if (!value) { clearPrivateUI(); setCurtain(true); } void perform(() => session.setOpenHands(value), !value); };
-  const hide = () => { clearPrivateUI(); setCurtain(true); };
+  const toggleOpenHands = (value: boolean) => void perform(() => session.setOpenHands(value));
   const onDraft = (event: DraftEvent) => { if (!busyRef.current) { setDraft(old => updateDraft(old, event)); setNotice(null); setError(null); } };
-  const view = playback?.done ? presentationView(playback.before.view, playback.next.view, playback.next.openHands) : snapshot?.view;
+  const view = snapshot?.view;
   const cards = view ? allVisible(view) : [];
   const source = view ? effectSource(view) : undefined;
   const selected = cards.find(card => card.id === draft.selectedId);
@@ -206,7 +196,7 @@ export function App() {
   const onCard = (card: VisibleCard) => { if (shiftHeld) return; if (!busyRef.current) { if (view?.phase === 'effect' && candidates.cards.some(target => target.id === card.id)) chooseTarget(card.id); else { onDraft({ type: 'select', id: card.id }); setInspectionId(card.id); } } };
   const onTrap = (seat: PlayerId) => { if (shiftHeld) return; if (view?.phase === 'effect' && candidates.hiddenTrapSeats.includes(seat)) { chooseTarget(`trap:${seat}`); return; } const trap = view?.players[seat].trap; if (trap && !('hidden' in trap)) onCard(trap); else setNotice('This trap is face down.'); };
   const drop = (sourceId: string, targetId: string) => {
-    if (!view || busyRef.current || curtain) return;
+    if (!view || busyRef.current) return;
     const result = resolveDrop(view, draft, sourceId, targetId);
     if (result.command) void submit(result.command); else if (result.event) onDraft(result.event); else setNotice(result.reason ?? 'Choose a highlighted destination.');
   };
@@ -222,51 +212,53 @@ export function App() {
     {inspected ? <Inspector definition={inspected.definition} card={inspected} /> : <p className="muted">Select a card to read its effect.</p>}
   </>;
   const hoveredCard = cards.find(card => card.id === hovered?.id);
+  const hoveredDefinition = hovered?.def ? CARDS[hovered.def] : hoveredCard?.definition;
   const historyEntries = playback?.next.view.history ?? view?.history ?? [];
   const errorBanner = error && <div className="error-banner" role="alert"><p>{error}</p><button type="button" className="icon-button" aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>;
-  return <div className={`app-shell ${view ? 'in-match' : ''}`} onPointerLeave={() => setHovered(undefined)} onPointerMove={event => {
+  return <div className={`app-shell ${view ? 'in-match' : ''}`} onPointerLeave={() => setHovered(undefined)} onFocus={event => {
+    const el = (event.target as Element).closest<HTMLElement>('[data-card-def]');
+    if (el) { const rect = el.getBoundingClientRect(); setHovered({ def: el.dataset.cardDef as CardDefId, left: rect.left, right: rect.right, top: rect.top }); }
+  }} onBlur={() => setHovered(undefined)} onPointerMove={event => {
     if (!desktop || event.buttons) { setHovered(undefined); return; }
-    const el = (event.target as Element).closest<HTMLElement>('[data-card-id]');
-    const id = el?.dataset.cardId;
-    if (!id || !el) setHovered(undefined);
-    else setHovered(old => { if (old?.id === id) return old; const rect = el.getBoundingClientRect(); return { id, left: rect.left, right: rect.right, top: rect.top }; });
+    const el = (event.target as Element).closest<HTMLElement>('[data-card-id],[data-card-def]');
+    const id = el?.dataset.cardId, def = el?.dataset.cardDef as CardDefId | undefined;
+    if (!el || !id && !def) setHovered(undefined);
+    else setHovered(old => { if (old?.id === id && old?.def === def) return old; const rect = el.getBoundingClientRect(); return { id, def, left: rect.left, right: rect.right, top: rect.top }; });
   }}>
     <header className="app-header"><a className="wordmark" href="#" onClick={event => event.preventDefault()} aria-label="Yokai 1504">Yokai <small>1504</small></a>
       {view && <span className="toolbar-supply" aria-label={`Supply: ${view.supply} souls`}><span>Supply</span><strong>{view.supply}</strong><img src={publicAsset('icons/soul.svg')} alt="" /></span>}
-      <div className="header-tools">{snapshot && <button type="button" className="header-button" disabled={busy || !snapshot.canUndo} onClick={undo}>↶ Undo</button>}<button type="button" className="header-button" disabled={busy} onClick={() => snapshot ? setMenu(true) : setRules(true)}>{snapshot ? 'Menu' : 'Rules'}</button>{!snapshot && <button type="button" className="header-button" onClick={() => setReplayOpen(true)}>Import replay</button>}</div>
+      <div className="header-tools"><button type="button" className="header-button" disabled={busy} onClick={() => snapshot ? setMenu(true) : setRules(true)}>{snapshot ? 'Menu' : 'Rules'}</button>{!snapshot && <button type="button" className="header-button" onClick={() => setReplayOpen(true)}>Import replay</button>}</div>
     </header>
     {errorBanner}
-    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} busy={busy} onRules={() => setRules(true)} /> : curtain ? <main className="privacy-screen">
-      <p>{view.phase === 'trap' ? 'An attack needs your response.' : view.phase === 'effect' ? 'Resolve a card effect.' : view.result ? 'The match has ended.' : `Turn ${view.turn}`}</p><h1>Pass to {view.players[view.decisionPlayer].name}</h1><p>Reveal when you have the device.</p>
-      <button type="button" className="primary reveal-button" onClick={() => setCurtain(false)}>Reveal for {view.players[view.decisionPlayer].name}</button>
-      <div className="curtain-public">{view.players.map(player => <span key={player.id}>{player.name} <strong>{player.health} ♥</strong></span>)}</div>
-    </main> : <>
-      <div className="match-status"><div className="turn-summary"><span>Turn {view.turn} · {view.players[view.turnPlayer].name}</span>{view.phase !== 'main' && <strong>{view.result ? `${view.result.winner === null ? 'Draw' : view.players[view.result.winner].name + ' wins'}` : view.phase === 'trap' ? 'Trap response' : view.phase === 'turnEnd' ? 'Attack complete' : 'Resolve effect'}</strong>}{snapshot.openHands && <span className="mode-label">Open hands</span>}</div>
-        {playback ? <div className="match-playback" role="status">{playback.done ? <button type="button" className="primary" onClick={() => acceptPlayback(playback.next)}>Continue · {playback.next.view.players[playback.next.view.decisionPlayer].name}</button> : <strong>Resolving…</strong>}</div> : view.result ? <button type="button" className="primary" onClick={() => setRestart(true)}>Play again</button> : <TurnControls view={view} draft={draft} busy={busy} onCommand={submit} onDetails={onDetails} showInspect={!desktop} />}
-      </div>
+    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} busy={busy} onRules={() => setRules(true)} /> : <>
+      {!rail && <div className="match-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
       <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={busy} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
-        {!playback && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
+        {!playback && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
         {source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
-        <Table view={view} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} onSoul={busy ? undefined : soul} onRelease={busy ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
+        <Table view={view} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
+          <TurnControls view={view} draft={draft} busy={busy} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
+          {playback && <span className="resolving-label" role="status">Resolving…</span>}
+          {view.result && <button type="button" className="primary" onClick={() => setRestart(true)}>Play again</button>}
+        </>} onSoul={busy ? undefined : soul} onRelease={busy ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
+        {!playback && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
       </div></DragSurface>
-      {rail && <aside className="details-rail" aria-label="Public history sidebar"><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} /></section></aside>}
+      {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
       </main>
     </>}
-    {playback && !playback.done && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command)} geometry={playback.geometry} onComplete={finishPlayback} />}
+    {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command)} geometry={playback.geometry} onComplete={finishPlayback} />}
     {menu && snapshot && <Modal title="Table menu" onClose={() => setMenu(false)}><div className="phone-menu-actions">
-      <button type="button" className="secondary" onClick={() => { setMenu(false); setRules(true); }}>Rules & cards</button><button type="button" className="secondary" onClick={() => { setMenu(false); setHistory(true); }} disabled={curtain}>Public history</button>
-      <button type="button" className="secondary" disabled={curtain || snapshot.openHands} onClick={hide}>Hide table</button>
+      <button type="button" className="secondary" onClick={() => { setMenu(false); setRules(true); }}>Rules & cards</button><button type="button" className="secondary" onClick={() => { setMenu(false); setHistory(true); }}>Public history</button>
       <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>
       <p className="small muted">Replay files include both hands and deck order.</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>Export replay</button><button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setRestart(true); }}>New game</button></div></Modal>}
     {replayOpen && <Modal title="Import replay" onClose={() => setReplayOpen(false)}><p>Choose an exported JSON file or paste it below. The replay opens in a separate session with its own save.</p><input type="file" accept=".json,application/json" aria-label="Replay file" onChange={async event => { const file = event.target.files?.[0]; if (file) { if (file.size > 5_000_000) setReplayError('The replay file is too large.'); else setReplayText(await file.text()); } }} /><textarea className="replay-input" aria-label="Replay JSON" value={replayText} onChange={event => setReplayText(event.target.value)} placeholder="Paste replay JSON" /><label className="replay-through">Replay through action<input type="number" min="0" max={replayCount} value={replayThrough} onChange={event => setReplayThrough(event.target.value)} placeholder={replayCount === undefined ? 'All actions' : `All ${replayCount} actions`} /></label>{replayError && <p role="alert">{replayError}</p>}<button type="button" className="primary" disabled={!replayText.trim()} onClick={() => void importReplay()}>Open replay in new session</button></Modal>}
-    {history && view && !curtain && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><PublicHistory entries={historyEntries} /></Modal>}
-    {desktop && shiftHeld && hovered && hoveredCard && !curtain && !busy && !detailsOpen && !menu && !history && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredCard.definition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredCard.definition} card={hoveredCard} /></div>, document.querySelector('dialog[open]') ?? document.body)}
-    {detailsOpen && view && !curtain && <Modal title="Card details" className="details-drawer" onClose={() => setDetailsOpen(false)}>{detailsContent}</Modal>}
+    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /></Modal>}
+    {desktop && (shiftHeld || hovered?.def) && hovered && hoveredDefinition && !busy && !detailsOpen && !menu && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredDefinition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredDefinition} card={hoveredCard} /></div>, document.querySelector('dialog[open]') ?? document.body)}
+    {detailsOpen && view && <Modal title="Card details" className="details-drawer" onClose={() => setDetailsOpen(false)}>{detailsContent}</Modal>}
     {rules && <Rules onClose={() => setRules(false)} onInspect={setReference} />}
     {reference && <Modal title={reference.name} onClose={() => setReference(null)}><Inspector definition={reference} /></Modal>}
-    {graveyard !== null && view && !curtain && <Modal title={`${view.players[graveyard].name}’s graveyard`} onClose={() => { setGraveyard(null); setHovered(undefined); }}><div className="graveyard-grid">{view.players[graveyard].graveyard.length ? view.players[graveyard].graveyard.map(card => <button type="button" className="graveyard-card" data-card-id={card.id} key={card.id} onClick={() => { if (desktop) return; setGraveyard(null); onDetails(card); }}><CardFace card={card} /><span>{card.definition.name}</span></button>) : <p>No cards here yet.</p>}</div></Modal>}
-    {restart && <Modal title="Start a new game?" onClose={() => setRestart(false)}><p>Starting the next game replaces this match and its undo history.</p><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setRestart(false)}>Keep playing</button><button type="button" className="primary" disabled={busy} onClick={() => { clearPrivateUI(); setRestart(false); snapshotRef.current = null; setSnapshot(null); setCurtain(false); setError(null); }}>Set up new game</button></div></Modal>}
+    {graveyard !== null && view && <Modal title={`${view.players[graveyard].name}’s graveyard`} onClose={() => { setGraveyard(null); setHovered(undefined); }}><div className="graveyard-grid">{view.players[graveyard].graveyard.length ? view.players[graveyard].graveyard.map(card => <button type="button" className="graveyard-card" data-card-id={card.id} key={card.id} onClick={() => { if (desktop) return; setGraveyard(null); onDetails(card); }}><CardFace card={card} /><span>{card.definition.name}</span></button>) : <p>No cards here yet.</p>}</div></Modal>}
+    {restart && <Modal title="Start a new game?" onClose={() => setRestart(false)}><p>Starting the next game replaces this match and its undo history.</p><div className="dialog-actions"><button type="button" className="secondary" onClick={() => setRestart(false)}>Keep playing</button><button type="button" className="primary" disabled={busy} onClick={() => { resetTableUI(); setRestart(false); snapshotRef.current = null; setSnapshot(null); setError(null); }}>Set up new game</button></div></Modal>}
   </div>;
 }

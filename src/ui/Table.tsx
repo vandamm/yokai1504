@@ -1,35 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
-import type { CardDefId, GameView, PlayerId, PlayerView, VisibleCard } from '../game/types';
+import type { ReactNode } from 'react';
+import type { GameView, PlayerId, PlayerView, VisibleCard } from '../game/types';
+import { CardFace } from './CardFace';
+export { CardFace } from './CardFace';
 import { publicAsset } from './assets';
 import { useTableDrag } from './DragSurface';
 import { actionUnavailableReason, allocationLimit, effectSource } from './interaction';
 
-const cardColors: Partial<Record<CardDefId, string>> = {
-  'karakasa-kozo': '#7c9554', kappa: '#ab525e', nekomata: '#d95d47',
-  'zashiki-warashi': '#d89fae', 'chochin-kozo': '#579d95', rokurokubi: '#9f8bbf',
-  'yuki-onna': '#324d88', tengu: '#686868', nurikabe: '#b2abaa',
-};
 const cardImage = (card: VisibleCard) => publicAsset(`cards/${card.def}.png`);
 const cardBack = (seat: PlayerId) => publicAsset(`cards/${seat === 0 ? 'back' : 'back-ochre'}.svg`);
 const visibleTrap = (trap: PlayerView['trap']): trap is VisibleCard => !!trap && !('hidden' in trap);
-
-/** Original artwork with live values over its printed attack and soul slots. */
-export function CardFace({ card, allocation = 0 }: { card: VisibleCard; allocation?: number }) {
-  return <span className="card-face" style={{ '--card-color': cardColors[card.def] } as CSSProperties}>
-    <img src={cardImage(card)} alt="" draggable={false} />
-    {card.zone === 'field' && <>
-      <span className={`live-attack ${card.attack !== card.definition.atk ? 'modified' : ''}`} aria-hidden="true">{card.attack}</span>
-      <span className="soul-slots" aria-hidden="true">{Array.from({ length: card.definition.cap }, (_, index) => <span key={index} className={`soul-slot ${index < card.souls ? 'filled' : index < card.souls + allocation ? 'pending' : ''}`} />)}</span>
-    </>}
-  </span>;
-}
 
 function cardLabel(card: VisibleCard, allocation = 0) {
   return card.definition.name + (card.zone === 'field' ? `, ${card.attack} attack, base ${card.definition.atk}, ${card.souls} of ${card.definition.cap} souls${allocation ? `, adding ${allocation}` : ''}` : '');
 }
 
 interface TableProps {
+  turnControls?: ReactNode;
   view: GameView;
   openHands: boolean;
   selectedId?: string;
@@ -59,7 +46,7 @@ function HandTrack({ player, openHands, children }: { player: PlayerView; openHa
   return <div className="hand-window"><div ref={track} className="hand-track" data-hand-seat={player.id} tabIndex={0} onScroll={measure} aria-description={`${player.handCount} cards`} aria-label={`${player.name}’s ${player.hand ? '' : 'hidden '}hand cards${openHands ? ', open hands' : ''}`}>{children}</div>{scroll.overflow && <><button type="button" className="hand-scroll hand-scroll-back" aria-label={`Scroll ${player.name}’s hand left`} disabled={scroll.start} onClick={() => track.current?.scrollBy({ left: -180, behavior: 'smooth' })}>‹</button><button type="button" className="hand-scroll hand-scroll-next" aria-label={`Scroll ${player.name}’s hand right`} disabled={scroll.end} onClick={() => track.current?.scrollBy({ left: 180, behavior: 'smooth' })}>›</button></>}</div>;
 }
 
-export function Table({ view, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease }: TableProps) {
+export function Table({ view, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls }: TableProps) {
   const drag = useTableDrag();
   const resolving = effectSource(view);
   const [expandedHand, setExpandedHand] = useState(false);
@@ -89,7 +76,7 @@ export function Table({ view, openHands, selectedId, targetIds, chosenTargets, a
       {top && player.hand && <span className="hand-expand-hint" aria-hidden="true">{expandedHand ? '⌃' : '⌄'}</span>}
     </>;
     return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
-      {top && player.hand ? <button type="button" className="seat-summary seat-summary-toggle" onClick={() => setExpandedHand(value => !value)} aria-expanded={expandedHand} aria-label={`${expandedHand ? 'Compact' : 'Expand'} ${player.name}’s hand`} aria-description={`${player.health} health; ${player.handCount} cards`}>{owner}</button> : <div className="seat-summary">{owner}</div>}
+      {top && player.hand ? <button type="button" className="seat-summary seat-summary-toggle" onClick={() => setExpandedHand(value => !value)} aria-expanded={expandedHand} aria-label={`${expandedHand ? 'Compact' : 'Expand'} ${player.name}’s hand`} aria-description={`${player.health} health; ${player.handCount} cards`}>{owner}</button> : <div className="seat-summary">{owner}{!top && turnControls}</div>}
       <HandTrack key={player.id} player={player} openHands={openHands}>
         {player.hand ? player.hand.length ? player.hand.map(card => cardButton(card, true)) : <span className="empty-hand">No cards in hand</span> : Array.from({ length: player.handCount }, (_, index) => <span className="hand-back" key={index} aria-hidden="true"><img src={cardBack(player.id)} alt="" draggable={false} /></span>)}
       </HandTrack>
