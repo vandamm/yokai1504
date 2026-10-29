@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.tsbuildinfo
+
+# Local screenshots of a signed-in reference game.
+docs/design/clean-table/board-together-game-*.jpg

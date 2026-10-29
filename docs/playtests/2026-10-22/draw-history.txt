@@ -1,0 +1,104 @@
+Both players prepare a fifteen-card deck and draw four cards.
+Turn 1: Draw A.
+Draw A draws a card.
+Turn 2: Draw B.
+Draw B draws a card.
+Turn 3: Draw A.
+Draw A draws a card.
+Turn 4: Draw B.
+Draw B draws a card.
+Turn 5: Draw A.
+Draw A draws a card.
+Turn 6: Draw B.
+Draw B draws a card.
+Turn 7: Draw A.
+Draw A draws a card.
+Turn 8: Draw B.
+Draw B draws a card.
+Turn 9: Draw A.
+Draw A draws a card.
+Turn 10: Draw B.
+Draw B draws a card.
+Turn 11: Draw A.
+Draw A draws a card.
+Turn 12: Draw B.
+Draw B draws a card.
+Turn 13: Draw A.
+Draw A draws a card.
+Turn 14: Draw B.
+Draw B draws a card.
+Turn 15: Draw A.
+Draw A draws a card.
+Turn 16: Draw B.
+Draw B draws a card.
+Turn 17: Draw A.
+Draw A draws a card.
+Turn 18: Draw B.
+Draw B draws a card.
+Turn 19: Draw A.
+Draw A draws a card.
+Turn 20: Draw B.
+Draw B draws a card.
+Turn 21: Draw A.
+Draw A draws a card.
+Turn 22: Draw B.
+Draw B draws a card.
+Turn 23: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 24: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 25: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 26: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 27: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 28: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 29: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 30: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 31: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 32: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 33: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 34: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 35: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 36: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 37: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 38: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 39: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 40: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 41: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 42: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 43: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 44: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 45: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 46: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 47: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 48: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Turn 49: Draw A.
+Draw B takes 1 damage (Draw A could not draw).
+Turn 50: Draw B.
+Draw A takes 1 damage (Draw B could not draw).
+Draw B casts Kozuchi.
+Draw A takes 1 damage (Draw B could not draw).
+Draw B wins.

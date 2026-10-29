@@ -1,0 +1,92 @@
+Both players prepare a fifteen-card deck and draw four cards.
+Turn 1: Dawn.
+Dawn draws a card.
+Dawn summons Kappa.
+Dawn evokes a soul onto Kappa.
+Dawn sets a spell trap.
+Turn 2: Dusk.
+Dusk draws a card.
+Dusk summons Kappa.
+Dusk evokes a soul onto Kappa.
+Dusk sets a spell trap.
+Dusk attacks with Kappa against Kappa.
+Dawn reveals Hamaya.
+Kappa is destroyed.
+The declared attack is cancelled.
+Turn 3: Dawn.
+Dawn draws a card.
+Dawn summons Zashiki-warashi.
+Dawn evokes a soul onto Kappa.
+Dawn attacks with Kappa directly.
+Dusk reveals Boseki.
+Dusk summons Kappa.
+Kappa is destroyed.
+Dusk takes 4 damage (battle).
+Turn 4: Dusk.
+Dusk draws a card.
+Dusk summons Nekomata.
+Dusk evokes a soul onto Nekomata.
+Dusk releases a soul from Nekomata.
+Nekomata exchanges control with Kappa.
+Dusk attacks with Kappa against Zashiki-warashi.
+Zashiki-warashi is destroyed.
+Dawn takes 4 damage (battle).
+Turn 5: Dawn.
+Dawn draws a card.
+Dawn casts Boseki.
+Dawn summons Kappa.
+Dawn evokes a soul onto Nekomata.
+Dawn releases a soul from Nekomata.
+Nekomata exchanges control with Kappa.
+Dawn attacks with Kappa against Nekomata.
+Nekomata is destroyed.
+Dusk takes 3 damage (battle).
+Turn 6: Dusk.
+Dusk draws a card.
+Dusk casts Kozuchi.
+Dusk draws a card.
+Dusk draws a card.
+Dusk summons Nurikabe.
+Dusk sets a spell trap.
+Turn 7: Dawn.
+Dawn draws a card.
+Dawn summons Rokurokubi.
+Dawn evokes a soul onto Rokurokubi.
+Dawn attacks with Kappa against Nurikabe.
+Dusk reveals Ougi.
+Ougi moves a soul from Kappa to Nurikabe.
+Kappa is destroyed.
+Dawn takes 2 damage (battle).
+Turn 8: Dusk.
+Dusk draws a card.
+Dusk summons Yuki-onna.
+Dusk evokes a soul onto Yuki-onna.
+Dusk attacks with Yuki-onna against Rokurokubi.
+Yuki-onna returns a soul to survive battle.
+Rokurokubi is destroyed.
+Turn 9: Dawn.
+Dawn draws a card.
+Dawn casts Jufu.
+Nurikabe is destroyed.
+Dawn summons Tengu.
+Dawn sets a spell trap.
+Dawn attacks with Tengu against Yuki-onna.
+Yuki-onna is destroyed.
+Dusk takes 1 damage (battle).
+Turn 10: Dusk.
+Dusk draws a card.
+Dusk summons Rokurokubi.
+Dusk evokes a soul onto Rokurokubi.
+Dusk attacks with Rokurokubi against Tengu.
+Dawn reveals Ougi.
+Ougi moves a soul from Rokurokubi to Tengu.
+Rokurokubi is destroyed.
+Dusk takes 2 damage (battle).
+Turn 11: Dawn.
+Dawn takes 1 damage (Tengu).
+Dawn draws a card.
+Dawn casts Sake.
+Sake distributes 3 souls.
+Dawn attacks with Tengu directly.
+Dusk takes 7 damage (direct attack).
+Dawn wins.

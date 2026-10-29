@@ -1,0 +1,79 @@
+[
+  {
+    "decks": [
+      "Draw A’s deck, 0 cards",
+      "Draw B’s deck, 0 cards"
+    ],
+    "health": [
+      "Draw A, 15 health",
+      "Draw B, 15 health"
+    ],
+    "status": "Turn 22 · Draw B2 actions leftOpen hands"
+  },
+  {
+    "decks": [
+      "Draw B’s deck, 0 cards",
+      "Draw A’s deck, 0 cards"
+    ],
+    "health": [
+      "Draw B, 14 health",
+      "Draw A, 15 health"
+    ],
+    "status": "Turn 23 · Draw A2 actions leftOpen hands"
+  },
+  {
+    "decks": [
+      "Draw A’s deck, 0 cards",
+      "Draw B’s deck, 0 cards"
+    ],
+    "health": [
+      "Draw A, 1 health",
+      "Draw B, 1 health"
+    ],
+    "status": "Turn 50 · Draw B2 actions leftOpen hands"
+  },
+  {
+    "case": "Mandatory failed draw gives Draw A victory on turn51",
+    "state": {
+      "health": [
+        "Draw B, 0 health",
+        "Draw A, 1 health"
+      ],
+      "result": "Draw A winshealth reached zeroPlay againHistory",
+      "status": "Turn 51 · Draw AMatch completeOpen hands"
+    }
+  },
+  {
+    "case": "Undo then empty-deck Kozuchi reverses winner to Draw B on turn50",
+    "state": {
+      "health": [
+        "Draw A, 0 health",
+        "Draw B, 1 health"
+      ],
+      "result": "Draw B winshealth reached zeroPlay againHistory",
+      "status": "Turn 50 · Draw BMatch completeOpen hands"
+    }
+  },
+  {
+    "case": "Immediate victory skips second Kozuchi failed draw",
+    "history": [
+      "Draw B casts Kozuchi.",
+      "Draw A takes 1 damage (Draw B could not draw).",
+      "Draw B wins."
+    ]
+  },
+  {
+    "case": "Winner and final result survive refresh",
+    "state": {
+      "result": "Draw B winshealth reached zeroPlay againHistory",
+      "status": "Turn 50 · Draw BMatch completeOpen hands"
+    }
+  },
+  {
+    "case": "Undo of finished Kozuchi while hidden keeps all private controls unmounted",
+    "state": {
+      "curtain": "Turn 50Pass to Draw BReveal when you have the device.Reveal for Draw BDraw A 1 ♥Draw B 1 ♥",
+      "privateControls": 0
+    }
+  }
+]

@@ -1,0 +1,55 @@
+/* Desktop design study; shares the phone prototype's sample interactions. */
+.review-bar { display: none; }
+.review-layout { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; max-width: 1600px; height: 100dvh; margin: 0 auto; padding: 24px; }
+.review-layout > section { min-width: 0; min-height: 0; }
+.phone { width: 100%; height: 100%; border: 1px solid #d6dadd; }
+.sample-label { display: none; }
+.match-nav { padding-left: 20px; height: 48px; }
+.match-nav strong { font-size: 17px; }
+.turn-bar { padding-inline: 20px; min-height: 38px; }
+.table { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(min-content,1fr) 30px; gap: 12px 20px; padding: 14px 20px; align-items: center; justify-content: initial; }
+.table > .seat:first-child { grid-column: 1; grid-row: 1; }
+.table > .seat:last-child { grid-column: 2; grid-row: 1; }
+.table > .resource { grid-column: 1/-1; grid-row: 2; }
+.seat { min-width: 0; }
+.seat-summary { gap: 8px; min-height: 44px; margin-bottom: 12px; }
+.seat-summary strong { font-size: 15px; }
+.seat-counters { gap: 5px; }
+.field { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px 8px; padding: 0; }
+.field .table-card { min-width: 0; padding: 3px; }
+.field .table-card img { width: min(100%,128px); height: 188px; object-fit: contain; }
+.field .selected, .field .target { padding: 2px; }
+.field .card-name { font-size: 13px; min-height: 32px; }
+.field .stats { width: 128px; max-width: 100%; font-size: 16px; }
+.stats small { font-size: 10px; margin-left: 4px; }
+.soul { font-size: 13px; }
+.table-trap { grid-column: 1/-1; justify-self: end; width: 82px; min-height: 44px; font-size: 12px; background: white; }
+.hand { padding: 6px 20px; }
+.hand-heading { height: 26px; font-size: 13px; }
+.hand-track { gap: 12px; padding: 4px 0; }
+.hand .table-card { flex-basis: 80px; }
+.hand .table-card img { width: 76px; height: 112px; }
+.hand .card-name { font-size: 12px; min-height: 28px; }
+.action-area { padding: 8px 20px; min-height: 62px; }
+.action-area .action-buttons { flex: 0 1 420px; }
+.action-area .details { margin-left: auto; }
+.phone .inspect-layer { display: none; }
+.notes { display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow: auto; padding: 16px 0 16px 20px; border-left: 1px solid #d6dadd; }
+.notes h2 { font-size: 17px; margin: 0 0 12px; }
+.notes p { margin-bottom: 12px; font-size: 14px; line-height: 1.6; }
+.desktop-preview-control { padding-bottom: 12px; border-bottom: 1px solid #d6dadd; }
+.desktop-preview-control label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #626970; }
+.desktop-preview-control select { flex: 1; min-width: 0; min-height: 44px; padding: 6px; border: 1px solid #d6dadd; background: white; }
+.reference-caption { margin-bottom: 4px; font-size: 12px; color: #626970; }
+.desktop-reference { padding-bottom: 16px; border-bottom: 1px solid #d6dadd; }
+.desktop-reference img { display: block; width: 130px; height: 194px; object-fit: contain; margin: 14px 0; }
+.reference-hint { color: #626970; font-size: 13px !important; }
+.desktop-history { flex: 1; }
+.desktop-history ol { list-style: none; padding: 0; margin: 0; }
+.desktop-history li { padding: 8px 0; margin: 0; border-bottom: 1px solid #e0e3e6; color: #626970; font-size: 13px; line-height: 1.5; }
+.desktop-prototype-note { font-size: 11px !important; color: #626970; }
+.other-hand .table-card { flex-basis: 58px; }
+.other-hand .table-card img { height: 80px; width: 54px; }
+@media(min-width:1600px) { .review-layout { grid-template-columns: minmax(0,1fr) 340px; gap: 24px; } .field .table-card img { width: min(100%,144px); height: 212px; } .field .stats { width: 144px; } .field { gap: 16px; } .desktop-reference img { width: 148px; height: 220px; } }
+@media(max-width:1279px), (max-height:649px) { .review-layout { grid-template-columns: minmax(0,1fr); padding: 12px; } .notes { display: none; } .phone .inspect-layer { display: flex; } }
+@media(max-width:700px) { .review-layout { padding: 0; } .table { display: flex; padding: 8px 12px; gap: 4px; } .field { grid-template-columns: repeat(3,minmax(0,1fr)) 44px; gap: 8px; } .table-trap { grid-column: auto; width: 44px; } .field .table-card img { height: 110px; } .field .stats { font-size: 14px; } .hand .table-card img { height: 96px; } }

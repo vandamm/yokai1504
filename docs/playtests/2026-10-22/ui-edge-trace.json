@@ -1,0 +1,597 @@
+[
+  {
+    "case": "Boseki with empty graveyards",
+    "state": {
+      "dock": "BosekiCast spell1 actionSet trapFreeDetailsEnd turn",
+      "enemy": [],
+      "hand": [
+        "Kappa",
+        "Boseki",
+        "Hamaya",
+        "Zashiki-warashi",
+        "Rokurokubi"
+      ],
+      "health": [
+        "Dusk, 15 health",
+        "Dawn, 15 health"
+      ],
+      "own": [],
+      "status": "Turn 1 · Dawn2 actions left",
+      "supply": "Supply11",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    },
+    "notice": "There is no yokai in either graveyard.\n×"
+  },
+  {
+    "case": "First-turn attack denied",
+    "state": {
+      "dock": "KappaEvoke1 actionAttackEnds turnDetailsEnd turn",
+      "enemy": [],
+      "hand": [
+        "Boseki",
+        "Hamaya",
+        "Zashiki-warashi",
+        "Rokurokubi"
+      ],
+      "health": [
+        "Dusk, 15 health",
+        "Dawn, 15 health"
+      ],
+      "own": [
+        "Kappa, 4 attack, base 2, 1 of 3 souls"
+      ],
+      "status": "Turn 1 · Dawn0 actions left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    },
+    "notice": "The starting player cannot attack on the first turn.\n×"
+  },
+  {
+    "case": "Equal-attack tie: both yokai destroyed, no battle damage",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [],
+      "hand": [
+        "Boseki",
+        "Zashiki-warashi",
+        "Rokurokubi",
+        "Tengu"
+      ],
+      "health": [
+        "Dusk, 15 health",
+        "Dawn, 15 health"
+      ],
+      "own": [],
+      "status": "Turn 3 · Dawn2 actions left",
+      "supply": "Supply11",
+      "traps": [
+        "Dusk’s hidden trap",
+        "Dawn’s trap Hamaya"
+      ]
+    }
+  },
+  {
+    "case": "Hamaya destroys attacking Kappa; attack is cancelled and turn ends",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [],
+      "hand": [
+        "Boseki",
+        "Zashiki-warashi",
+        "Rokurokubi",
+        "Tengu"
+      ],
+      "health": [
+        "Dusk, 15 health",
+        "Dawn, 15 health"
+      ],
+      "own": [
+        "Kappa, 4 attack, base 2, 1 of 3 souls"
+      ],
+      "status": "Turn 3 · Dawn2 actions left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s hidden trap",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Direct attack redirected to Boseki revived Kappa; 6 minus 2 deals4",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls",
+        "Zashiki-warashi, 2 attack, base 2, 0 of 2 souls"
+      ],
+      "hand": [
+        "Kozuchi",
+        "Nurikabe",
+        "Yuki-onna",
+        "Nekomata"
+      ],
+      "health": [
+        "Dawn, 15 health",
+        "Dusk, 11 health"
+      ],
+      "own": [],
+      "status": "Turn 4 · Dusk2 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Nekomata exchanges current control while souls travel with Kappa",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Nekomata, 3 attack, base 3, 0 of 3 souls",
+        "Zashiki-warashi, 2 attack, base 2, 0 of 2 souls"
+      ],
+      "hand": [
+        "Kozuchi",
+        "Nurikabe",
+        "Yuki-onna"
+      ],
+      "health": [
+        "Dawn, 15 health",
+        "Dusk, 11 health"
+      ],
+      "own": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls"
+      ],
+      "status": "Turn 4 · Dusk0 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Borrowed weaker Kappa dies: Dawn takes1; card returns to Dusk graveyard",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls"
+      ],
+      "hand": [
+        "Kozuchi",
+        "Nurikabe",
+        "Yuki-onna",
+        "Karakasa-kozo"
+      ],
+      "health": [
+        "Dawn, 10 health",
+        "Dusk, 11 health"
+      ],
+      "own": [
+        "Nekomata, 3 attack, base 3, 0 of 3 souls"
+      ],
+      "status": "Turn 6 · Dusk2 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Undo restores both controlled Kappas, souls, health and draw; stronger Kappa attack deals3",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls",
+        "Kappa, 2 attack, base 2, 0 of 3 souls"
+      ],
+      "hand": [
+        "Kozuchi",
+        "Nurikabe",
+        "Yuki-onna",
+        "Karakasa-kozo"
+      ],
+      "health": [
+        "Dawn, 11 health",
+        "Dusk, 8 health"
+      ],
+      "own": [],
+      "status": "Turn 6 · Dusk2 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Kozuchi spends1 action, draws exactly2 cards",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls",
+        "Kappa, 2 attack, base 2, 0 of 3 souls"
+      ],
+      "hand": [
+        "Nurikabe",
+        "Yuki-onna",
+        "Karakasa-kozo",
+        "Chochin-kozo",
+        "Ougi"
+      ],
+      "health": [
+        "Dawn, 11 health",
+        "Dusk, 8 health"
+      ],
+      "own": [],
+      "status": "Turn 6 · Dusk1 action left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Nurikabe summon-turn attack denied",
+    "state": {
+      "dock": "NurikabeEvoke1 actionAttackEnds turnDetailsEnd turn",
+      "enemy": [
+        "Kappa, 6 attack, base 2, 2 of 3 souls",
+        "Kappa, 2 attack, base 2, 0 of 3 souls"
+      ],
+      "hand": [
+        "Yuki-onna",
+        "Karakasa-kozo",
+        "Chochin-kozo",
+        "Ougi"
+      ],
+      "health": [
+        "Dawn, 11 health",
+        "Dusk, 8 health"
+      ],
+      "own": [
+        "Nurikabe, 5 attack, base 5, 0 of 1 souls"
+      ],
+      "status": "Turn 6 · Dusk0 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    },
+    "notice": "Nurikabe prevents attacks during its summon turn.\n×"
+  },
+  {
+    "case": "Fixed duplicate Details labels and inspected weaker copy without command",
+    "stats": "2 attack now\n0/3 souls"
+  },
+  {
+    "case": "Ougi donor deselection clears ordered pair",
+    "state": {
+      "dock": "Ougi1. Choose a yokai with a soul.ConfirmDetails",
+      "enemy": [
+        "Target Kappa, 6 attack, base 2, 2 of 3 souls",
+        "Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Target Rokurokubi, 4 attack, base 3, 1 of 3 souls"
+      ],
+      "hand": [
+        "Yuki-onna",
+        "Karakasa-kozo",
+        "Chochin-kozo"
+      ],
+      "health": [
+        "Dawn, 11 health",
+        "Dusk, 8 health"
+      ],
+      "own": [
+        "Nurikabe, 5 attack, base 5, 0 of 1 souls"
+      ],
+      "status": "Turn 7 · DawnResolve effect",
+      "supply": "Supply8",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    },
+    "confirmDisabled": "true"
+  },
+  {
+    "case": "Ougi changes combat from Kappa6/Nurikabe5 to Kappa4/Nurikabe6; Dawn takes2",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Rokurokubi, 4 attack, base 3, 1 of 3 souls"
+      ],
+      "hand": [
+        "Yuki-onna",
+        "Karakasa-kozo",
+        "Chochin-kozo",
+        "Rokurokubi"
+      ],
+      "health": [
+        "Dawn, 9 health",
+        "Dusk, 8 health"
+      ],
+      "own": [
+        "Nurikabe, 6 attack, base 5, 1 of 1 souls"
+      ],
+      "status": "Turn 8 · Dusk2 actions left",
+      "supply": "Supply9",
+      "traps": [
+        "Dawn’s empty trap slot",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "EqualATK Yuki survives by returning soul; Roku destroyed, no bonus draw or damage",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Nurikabe, 6 attack, base 5, 1 of 1 souls",
+        "Yuki-onna, 3 attack, base 3, 0 of 2 souls"
+      ],
+      "hand": [
+        "Tengu",
+        "Nekomata",
+        "Jufu",
+        "Ougi"
+      ],
+      "health": [
+        "Dusk, 8 health",
+        "Dawn, 9 health"
+      ],
+      "own": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls"
+      ],
+      "status": "Turn 9 · Dawn2 actions left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Jufu zero-target resolution consumes only original cast action",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Nurikabe, 6 attack, base 5, 1 of 1 souls",
+        "Yuki-onna, 3 attack, base 3, 0 of 2 souls"
+      ],
+      "hand": [
+        "Tengu",
+        "Nekomata",
+        "Ougi"
+      ],
+      "health": [
+        "Dusk, 8 health",
+        "Dawn, 9 health"
+      ],
+      "own": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls"
+      ],
+      "status": "Turn 9 · Dawn1 action left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Jufu selected target plus unprotected Yuki defeat",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Tengu, 4 attack, base 4, 0 of 3 souls"
+      ],
+      "hand": [
+        "Karakasa-kozo",
+        "Chochin-kozo",
+        "Rokurokubi",
+        "Tengu"
+      ],
+      "health": [
+        "Dawn, 9 health",
+        "Dusk, 7 health"
+      ],
+      "own": [],
+      "status": "Turn 10 · Dusk2 actions left",
+      "supply": "Supply11",
+      "traps": [
+        "Dawn’s hidden trap",
+        "Dusk’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Defending Ougi converts tie into Tengu5 vs Roku3; Dusk loses2, Tengu turn-start selfdamage1",
+    "state": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [],
+      "hand": [
+        "Nekomata",
+        "Sake"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Tengu, 5 attack, base 4, 1 of 3 souls"
+      ],
+      "status": "Turn 11 · Dawn2 actions left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Exact lethal direct attack5 into5HP",
+    "before": {
+      "dock": "Tap a card to actEnd turn",
+      "enemy": [],
+      "hand": [
+        "Nekomata",
+        "Sake"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Tengu, 5 attack, base 4, 1 of 3 souls"
+      ],
+      "status": "Turn 11 · Dawn2 actions left",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    },
+    "after": {
+      "decks": [
+        "Dusk’s deck, 4 cards",
+        "Dawn’s deck, 5 cards"
+      ],
+      "endTurn": false,
+      "health": [
+        "Dusk, 0 health",
+        "Dawn, 8 health"
+      ],
+      "result": "Dawn winshealth reached zeroPlay againHistory",
+      "status": "Turn 11 · DawnMatch complete",
+      "undo": false
+    }
+  },
+  {
+    "case": "Sake refuses allocation beyond Tengu capacity",
+    "notice": "This yokai has no more soul capacity.\n×",
+    "state": {
+      "dock": "SakeTengu · 2/3 souls allocated−2+Place 2 soulsDetailsClear",
+      "enemy": [],
+      "hand": [
+        "Nekomata"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Target Kappa, 2 attack, base 2, 0 of 3 souls",
+        "Target Tengu, 5 attack, base 4, 1 of 3 souls, adding 2"
+      ],
+      "status": "Turn 11 · DawnResolve effect",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Sake refuses fourth soul although Kappa has capacity",
+    "notice": "All available souls for this Sake are allocated.\n×",
+    "state": {
+      "dock": "SakeKappa · 3/3 souls allocated−1+Place 3 soulsDetailsClear",
+      "enemy": [],
+      "hand": [
+        "Nekomata"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Target Kappa, 2 attack, base 2, 0 of 3 souls, adding 1",
+        "Target Tengu, 5 attack, base 4, 1 of 3 souls, adding 2"
+      ],
+      "status": "Turn 11 · DawnResolve effect",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Sake allocation preserved through Details and desktop resize",
+    "state": {
+      "dock": "SakeKappa · 3/3 souls allocated−1+Place 3 soulsDetailsClear",
+      "enemy": [],
+      "hand": [
+        "Nekomata"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Target Kappa, 2 attack, base 2, 0 of 3 souls, adding 1",
+        "Target Tengu, 5 attack, base 4, 1 of 3 souls, adding 2"
+      ],
+      "status": "Turn 11 · DawnResolve effect",
+      "supply": "Supply10",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Double-click Place commits one allocation and one original spell action",
+    "state": {
+      "dock": "NekomataSummon1 actionDetailsEnd turn",
+      "enemy": [],
+      "hand": [
+        "Nekomata"
+      ],
+      "health": [
+        "Dusk, 5 health",
+        "Dawn, 8 health"
+      ],
+      "own": [
+        "Kappa, 4 attack, base 2, 1 of 3 souls",
+        "Tengu, 7 attack, base 4, 3 of 3 souls"
+      ],
+      "status": "Turn 11 · Dawn1 action left",
+      "supply": "Supply7",
+      "traps": [
+        "Dusk’s empty trap slot",
+        "Dawn’s empty trap slot"
+      ]
+    }
+  },
+  {
+    "case": "Overkill direct attack7 into5HP clamps health0, preserves winning health and stops before next turn",
+    "state": {
+      "decks": [
+        "Dusk’s deck, 4 cards",
+        "Dawn’s deck, 5 cards"
+      ],
+      "health": [
+        "Dusk, 0 health",
+        "Dawn, 8 health"
+      ],
+      "result": "Dawn winshealth reached zeroPlay againHistory",
+      "status": "Turn 11 · DawnMatch complete"
+    }
+  }
+]
