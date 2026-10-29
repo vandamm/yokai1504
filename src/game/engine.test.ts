@@ -149,9 +149,9 @@ describe('spells and release effects', () => {
 });
 
 describe('combat and timing', () => {
-  it('resolves attacker victory, damage and automatically ends the turn', () => {
+  it('resolves attacker victory, damage and waits for explicit turn completion', () => {
     const s=fixture(), a=put(s,'tengu',0,'field',1), b=put(s,'kappa',1);
-    const n=act(s,{type:'attack',attacker:a,target:b}); expect(n.players[1].health).toBe(12); expect(n.players[1].graveyard).toContain(b); expect(n.turnPlayer).toBe(1); expect(n.turn).toBe(4); invariant(n);
+    const n=act(s,{type:'attack',attacker:a,target:b}); expect(n.players[1].health).toBe(12); expect(n.players[1].graveyard).toContain(b); expect(n.turnPlayer).toBe(0); expect(n.phase).toBe('turnEnd'); expect(n.turn).toBe(3); invariant(n);
   });
   it('resolves defender victory against current controller and sends stolen cards to original owner', () => {
     const s=fixture(), a=put(s,'kappa',1,'field',0,0), b=put(s,'nurikabe',1);
@@ -168,13 +168,13 @@ describe('combat and timing', () => {
   it('waits for trap response even when its exact effect is unusable; decline is always valid', () => {
     const s=fixture(), a=put(s,'kappa',0), trap=put(s,'boseki',1,'trap'); const n=act(s,{type:'attack',attacker:a,target:null});
     expect(n.phase).toBe('trap'); expect(n.decisionPlayer).toBe(1); expect(n.pending?.kind).toBe('trap'); expect(canActivate(n,trap,'trap')).toBe(false);
-    expect(() => act(n,{type:'respond',activate:true})).toThrow(); const d=act(n,{type:'respond',activate:false}); expect(d.players[1].trap).toBe(trap); expect(d.players[1].health).toBe(13); expect(d.turnPlayer).toBe(1);
+    expect(() => act(n,{type:'respond',activate:true})).toThrow(); const d=act(n,{type:'respond',activate:false}); expect(d.players[1].trap).toBe(trap); expect(d.players[1].health).toBe(13); expect(d.turnPlayer).toBe(0); expect(d.phase).toBe('turnEnd');
   });
   it('persists spell choice and attack continuation, then cancels attack if attacker destroyed', () => {
     const s=fixture(), a=put(s,'tengu',0), trap=put(s,'hamaya',1,'trap');
     const response=act(act(s,{type:'attack',attacker:a,target:null}),{type:'respond',activate:true}); expect(response.phase).toBe('effect'); expect(response.pending?.kind==='effect' && response.pending.attack?.attacker).toBe(a);
     const restored=JSON.parse(JSON.stringify(response)) as GameState, n=act(restored,{type:'choose',targets:[a]});
-    expect(n.players[0].graveyard).toContain(a); expect(n.players[1].health).toBe(15); expect(n.turnPlayer).toBe(1); expect(n.players[1].graveyard).toContain(trap); invariant(n);
+    expect(n.players[0].graveyard).toContain(a); expect(n.players[1].health).toBe(15); expect(n.turnPlayer).toBe(0); expect(n.phase).toBe('turnEnd'); expect(n.players[1].graveyard).toContain(trap); invariant(n);
   });
   it('Boseki trap redirects a direct attack to the revived defender', () => {
     const s=fixture(), a=put(s,'tengu',0), b=put(s,'kappa',1,'graveyard'); put(s,'boseki',1,'trap');
@@ -183,11 +183,11 @@ describe('combat and timing', () => {
   });
   it('removing declared defender cancels attack instead of retargeting', () => {
     const s=fixture(), a=put(s,'kappa',0), b=put(s,'nurikabe',1); put(s,'hamaya',1,'trap');
-    const n=act(act(act(s,{type:'attack',attacker:a,target:b}),{type:'respond',activate:true}),{type:'choose',targets:[b]}); expect(n.players[1].health).toBe(15); expect(n.turnPlayer).toBe(1);
+    const n=act(act(act(s,{type:'attack',attacker:a,target:b}),{type:'respond',activate:true}),{type:'choose',targets:[b]}); expect(n.players[1].health).toBe(15); expect(n.turnPlayer).toBe(0); expect(n.phase).toBe('turnEnd');
   });
   it('Kozuchi trap resolves automatically then completes the attack', () => {
     const s=fixture(), a=put(s,'tengu',0); put(s,'kozuchi',1,'trap'); const n=act(act(s,{type:'attack',attacker:a,target:null}),{type:'respond',activate:true});
-    expect(n.phase).toBe('main'); expect(n.players[1].hand).toHaveLength(3); expect(n.players[1].health).toBe(11); invariant(n);
+    expect(n.phase).toBe('turnEnd'); expect(n.players[1].hand).toHaveLength(2); expect(n.players[1].health).toBe(11); invariant(n);
   });
   it('lethal empty draws during a trap finish with no pending private decision', () => {
     const s=fixture(), a=put(s,'kappa',0); put(s,'kozuchi',1,'trap');

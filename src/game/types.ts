@@ -5,7 +5,7 @@ export interface CardInstance { id: string; def: CardDefId; owner: PlayerId; sou
 export interface PlayerState { name: string; health: number; deck: string[]; hand: string[]; field: string[]; graveyard: string[]; trap: string | null; }
 export interface Attack { attacker: string; target: string | null; }
 export type Pending = ({kind:'trap'; actor:PlayerId} & Attack) | {kind:'effect'; actor:PlayerId; cardId:string; source:'cast'|'trap'|'release'; attack:Attack|null};
-export interface GameState { rulesVersion:1; turn:number; turnPlayer:PlayerId; decisionPlayer:PlayerId; phase:'main'|'trap'|'effect'|'finished'; actionsUsed:number; supply:number; cards:Record<string,CardInstance>; players:[PlayerState,PlayerState]; pending:Pending|null; result:{winner:PlayerId|null;reason:string}|null; history:string[]; }
+export interface GameState { rulesVersion:1; turn:number; turnPlayer:PlayerId; decisionPlayer:PlayerId; phase:'main'|'trap'|'effect'|'turnEnd'|'finished'; actionsUsed:number; supply:number; cards:Record<string,CardInstance>; players:[PlayerState,PlayerState]; pending:Pending|null; result:{winner:PlayerId|null;reason:string}|null; history:string[]; }
 export type GameCommand = {type:'play';cardId:string} | {type:'evoke';cardId:string} | {type:'release';cardId:string} | {type:'setTrap';cardId:string} | ({type:'attack'} & Attack) | {type:'respond';activate:boolean} | {type:'choose';targets?:string[];allocations?:{cardId:string;count:number}[]} | {type:'endTurn'};
 export interface SetupOptions { seed:number; names?:[string,string]; startingPlayer?:PlayerId; }
 export interface VisibleCard extends CardInstance { definition:CardDefinition; attack:number; controller:PlayerId; zone:'hand'|'field'|'graveyard'|'trap'; }

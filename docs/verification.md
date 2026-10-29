@@ -1,3 +1,17 @@
+# Verification update — 2026-10-29
+
+- Desktop hands scale to about 95 CSS px at 1488 × 1005 (previously 63 px); health, text, controls and piles are larger. The 2/1/0 main-action budget is beside the current decision, and hidden during defender effects.
+- Details opens a modal on desktop as well as phones.
+- Actual browser pointer drags: Sake to Play, Ougi to Trap, Nurikabe to Karakasa-kozo, Jufu trap to Play, and Kappa from hand to field. Sake staged two soul allocations and resolved by dragging to Resolve. Jufu targeted two yokai with keyboard pick/drop, destroyed the attacker and cancelled the attack.
+- Explicit End turn was required after both battle and cancellation. Tengu damage and the next draw were animated and listed after End turn. Private player-changing outcomes displayed card backs and zero hand-card inspection nodes before Continue and Reveal.
+- Exported a pending Jufu trap response as JSON; imported it into a separate query-keyed session with the same fields, souls, player, and pending effect. Undo in the imported session restored the trap decision while the original remained pending. Prefix import, invalid files, undo branches and legacy automatic-turn save migration have automated coverage.
+- Final populated-table checks: 390 × 844, 430 × 932, 1024 × 768, 1280 × 650, 1280 × 741, 1440 × 900, 1488 × 1005, 1920 × 1080. All six cards visible and zero document horizontal overflow. Small/landscape screens retain independent battlefield scrolling.
+- Code review identified a second-pointer release/cancel bug. The corrected gesture lifecycle ignores all secondary-pointer events; automated tests cover the complete primary/secondary gesture sequence.
+- 220 tests across 18 files pass, including 96 complete-match action/effect choice audits and 24 deterministic game simulations. Build and diff whitespace check pass.
+- Not physically tested on iPhone/Android. Browser pointer input and phone-size layout checks do not establish physical-device behavior.
+
+---
+
 # Gameplay edge-case audit — 2026-10-22
 
 **197 tests / 12 files pass; TypeScript and production build pass.** Played two complete games through browser controls on an isolated origin, preserving the existing match.

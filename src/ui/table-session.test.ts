@@ -134,7 +134,7 @@ describe('table decisions through LocalSession', () => {
     expect(pending.view).toMatchObject({ phase: 'effect', turnPlayer: 1, decisionPlayer: 0 });
     const draft = effectDraft(pending.view);
     const resolved = await submit(reloaded, pending, effectCommand(pending.view, draft));
-    expect(resolved.view).toMatchObject({ phase: 'main', turnPlayer: 0, decisionPlayer: 0 });
+    expect(resolved.view).toMatchObject({ phase: 'turnEnd', turnPlayer: 1, decisionPlayer: 0 });
     expect((await reloaded.undo(resolved.revision)).view).toEqual(pending.view);
   });
 
@@ -166,6 +166,7 @@ describe('table decisions through LocalSession', () => {
 
 function mainCommands(view: GameView): GameCommand[] {
   const actor = view.players[view.decisionPlayer], opponent = view.players[view.decisionPlayer === 0 ? 1 : 0];
+  if (view.phase === 'turnEnd') return [{ type: 'endTurn' }];
   const commands: GameCommand[] = [];
   for (const card of [...(actor.hand ?? []), ...(visibleTrap(actor.trap) ? [actor.trap] : [])]) {
     if (!actionUnavailableReason(view, card, 'play')) commands.push({ type: 'play', cardId: card.id });

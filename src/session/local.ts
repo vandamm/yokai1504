@@ -6,10 +6,12 @@ import type { GameCommand, GameState, GameView, PlayerId, SetupOptions } from '.
 
 export const SAVE_KEY = 'yokai-1504.local-match.v1';
 export interface SessionStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; }
-export interface SessionSnapshot { matchId: string; revision: number; view: GameView; openHands: boolean; canUndo: boolean; }
+export interface SessionSnapshot { matchId: string; revision: number; view: GameView; openHands: boolean; canUndo: boolean; recentHistory: string[]; }
 interface Submission { matchId: string; commandId: string; expectedRevision: number; actor: PlayerId; command: GameCommand; }
 type Position = Omit<GameState, 'history'> & { historyLength: number };
 interface Receipt { commandId: string; payload: string; acceptedRevision: number; }
+type ReplayAction = { actor: PlayerId; command: GameCommand };
+type AuditEvent = ({ kind: 'command' } & ReplayAction) | { kind: 'undo' } | { kind: 'openHands'; value: boolean };
 interface SavedMatch {
   schemaVersion: 1;
   catalogVersion: 1;
@@ -19,6 +21,7 @@ interface SavedMatch {
   state: GameState;
   checkpoints: Position[];
   receipts: Receipt[];
+  audit?: AuditEvent[];
 }
 
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -62,12 +65,22 @@ function validateCommand(value: unknown): asserts value is GameCommand {
   }
 }
 
+function validateAudit(value: unknown): asserts value is AuditEvent[] {
+  check(Array.isArray(value) && value.length <= 10000, 'Invalid action audit.');
+  for (const event of value) {
+    check(object(event), 'Invalid audit event.');
+    if (event.kind === 'command') { keys(event, ['kind', 'actor', 'command']); check(player(event.actor), 'Invalid audit actor.'); validateCommand(event.command); }
+    else if (event.kind === 'undo') keys(event, ['kind']);
+    else { keys(event, ['kind', 'value']); check(event.kind === 'openHands' && typeof event.value === 'boolean', 'Invalid audit event.'); }
+  }
+}
+
 function validateGame(value: unknown): asserts value is GameState {
   check(object(value), 'The game position is missing.');
   keys(value, ['rulesVersion', 'turn', 'turnPlayer', 'decisionPlayer', 'phase', 'actionsUsed', 'supply', 'cards', 'players', 'pending', 'result', 'history']);
   check(value.rulesVersion === 1, 'The rules version is incompatible.');
   check(integer(value.turn, 1) && player(value.turnPlayer) && player(value.decisionPlayer), 'Invalid turn or player.');
-  check(['main', 'trap', 'effect', 'finished'].includes(value.phase), 'Invalid game phase.');
+  check(['main', 'trap', 'effect', 'turnEnd', 'finished'].includes(value.phase), 'Invalid game phase.');
   check(integer(value.actionsUsed, 0, 2) && integer(value.supply, 0, 11), 'Invalid action budget or soul supply.');
   check(Array.isArray(value.history) && value.history.every((entry: unknown) => typeof entry === 'string'), 'Invalid public history.');
   check(object(value.cards) && Object.keys(value.cards).length === 30, 'The match must contain 30 cards.');
@@ -114,8 +127,8 @@ function validateGame(value: unknown): asserts value is GameState {
     check(ownerDeck.size === new Set(DECK).size && DECK.every(def => ownerDeck.get(def) === DECK.filter(card => card === def).length), 'The saved card catalog composition is invalid.');
   }
 
-  if (value.phase === 'main' || value.phase === 'finished') {
-    check(value.pending === null && value.decisionPlayer === value.turnPlayer, 'The game has an inconsistent decision maker.');
+  if (value.phase === 'main' || value.phase === 'turnEnd' || value.phase === 'finished') {
+    check(value.pending === null && (value.phase === 'turnEnd' || value.decisionPlayer === value.turnPlayer), 'The game has an inconsistent decision maker.');
   } else {
     const pending = value.pending;
     check(object(pending) && pending.kind === value.phase && player(pending.actor) && pending.actor === value.decisionPlayer, 'The pending decision is invalid.');
@@ -165,7 +178,8 @@ function parseSaved(raw: string): SavedMatch {
     const saved: unknown = JSON.parse(raw);
     check(object(saved), 'The match record is missing.');
     check(saved.schemaVersion === 1 && saved.catalogVersion === 1, 'The save or catalog version is incompatible.');
-    keys(saved, ['schemaVersion', 'catalogVersion', 'matchId', 'revision', 'openHands', 'state', 'checkpoints', 'receipts']);
+    keys(saved, ['schemaVersion', 'catalogVersion', 'matchId', 'revision', 'openHands', 'state', 'checkpoints', 'receipts'], ['audit']);
+    if (saved.audit !== undefined) validateAudit(saved.audit);
     check(text(saved.matchId) && integer(saved.revision) && typeof saved.openHands === 'boolean', 'Invalid match metadata.');
     validateGame(saved.state);
     check(Array.isArray(saved.checkpoints), 'Invalid undo history.');
@@ -215,7 +229,7 @@ export class LocalSession {
   private snapshot(): SessionSnapshot {
     const match = this.current();
     const view = match.openHands ? viewForLocalTesting(match.state) : viewForPlayer(match.state, match.state.decisionPlayer);
-    return copy({ matchId: match.matchId, revision: match.revision, view, openHands: match.openHands, canUndo: match.checkpoints.length > 0 });
+    return copy({ matchId: match.matchId, revision: match.revision, view, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0) });
   }
 
   private checkRevision(expected: number) {
@@ -252,7 +266,7 @@ export class LocalSession {
     validateGame(state);
     const matchId = this.makeId();
     check(text(matchId), 'Could not create a match ID.');
-    this.persist({ schemaVersion: 1, catalogVersion: 1, matchId, revision: 0, openHands: options.openHands ?? false, state, checkpoints: [], receipts: [] }, expected);
+    this.persist({ schemaVersion: 1, catalogVersion: 1, matchId, revision: 0, openHands: options.openHands ?? false, state, checkpoints: [], receipts: [], audit: [] }, expected);
     return this.snapshot();
   }
 
@@ -277,7 +291,7 @@ export class LocalSession {
     validateGame(state);
     const { history, ...position } = current.state;
     const revision = current.revision + 1;
-    this.persist({ ...current, revision, state, checkpoints: [...current.checkpoints, { ...position, historyLength: history.length }], receipts: [...current.receipts, { commandId: submission.commandId, payload, acceptedRevision: revision }] });
+    this.persist({ ...current, revision, state, audit: [...this.audit(current), { kind: 'command', actor: submission.actor, command: submission.command }], checkpoints: [...current.checkpoints, { ...position, historyLength: history.length }], receipts: [...current.receipts, { commandId: submission.commandId, payload, acceptedRevision: revision }] });
     return this.snapshot();
   }
 
@@ -288,7 +302,73 @@ export class LocalSession {
     check(current.checkpoints.length > 0, 'There is no accepted action to undo.');
     const { historyLength, ...position } = current.checkpoints[current.checkpoints.length - 1];
     const state: GameState = { ...position, history: current.state.history.slice(0, historyLength) };
-    this.persist({ ...current, revision: current.revision + 1, state, checkpoints: current.checkpoints.slice(0, -1) });
+    this.persist({ ...current, revision: current.revision + 1, state, audit: [...this.audit(current), { kind: 'undo' }], checkpoints: current.checkpoints.slice(0, -1) });
+    return this.snapshot();
+  }
+
+  private audit(match: SavedMatch): AuditEvent[] {
+    return match.audit ?? match.receipts.map(receipt => {
+      const { actor, command } = JSON.parse(receipt.payload) as ReplayAction;
+      return { kind: 'command', actor, command };
+    });
+  }
+
+  async exportReplay(): Promise<string> {
+    const match = this.current(); this.checkStorage();
+    const positions: GameState[] = [...match.checkpoints.map(({ historyLength, ...position }) => ({ ...position, history: match.state.history.slice(0, historyLength) })), match.state];
+    const actions: ReplayAction[] = [];
+    const candidates: ReplayAction[] = match.receipts.map(receipt => JSON.parse(receipt.payload));
+    for (let index = 0; index < positions.length - 1; index++) {
+      const before = positions[index], expected = canonical(positions[index + 1]);
+      let found: ReplayAction[] | undefined;
+      for (const { actor, command } of candidates) {
+        try {
+          let next = applyCommand(before, actor, command);
+          const steps = [{ actor, command }];
+          // Older saves started the next turn immediately after combat.
+          if (next.phase === 'turnEnd' && positions[index + 1].turn === next.turn + 1) {
+            steps.push({ actor: next.decisionPlayer, command: { type: 'endTurn' } });
+            next = applyCommand(next, next.decisionPlayer, { type: 'endTurn' });
+          }
+          if (canonical(next) === expected) { found = steps; break; }
+        } catch { /* This receipt belongs to a different undo branch. */ }
+      }
+      check(found, 'An action in this save could not be reconstructed.');
+      actions.push(...found);
+    }
+    return JSON.stringify({ format: 'yokai1504-replay', version: 1, initial: positions[0], actions, final: match.state, openHands: match.openHands, audit: this.audit(match) }, null, 2);
+  }
+
+  async importReplay(raw: string, throughAction?: number): Promise<SessionSnapshot> {
+    check(raw.length <= 5_000_000, 'The replay file is too large.');
+    const file: unknown = JSON.parse(raw);
+    check(object(file), 'Invalid replay file.');
+    keys(file, ['format', 'version', 'initial', 'actions', 'final', 'openHands', 'audit']);
+    check(file.format === 'yokai1504-replay' && file.version === 1, 'Incompatible replay format.');
+    validateGame(file.initial); validateGame(file.final); validateAudit(file.audit);
+    check(typeof file.openHands === 'boolean' && Array.isArray(file.actions) && file.actions.length <= 2000, 'Invalid replay actions.');
+    const through = throughAction ?? file.actions.length;
+    check(integer(through, 0, file.actions.length), 'The replay action index is out of range.');
+    let state = copy(file.initial);
+    const checkpoints: Position[] = [], receipts: Receipt[] = [];
+    const matchId = this.makeId(); check(text(matchId), 'Could not create a match ID.');
+    for (const action of file.actions) {
+      check(object(action), 'Invalid replay action.'); keys(action, ['actor', 'command']);
+      check(player(action.actor), 'Invalid replay actor.'); validateCommand(action.command);
+      const { history, ...position } = state;
+      checkpoints.push({ ...position, historyLength: history.length });
+      state = applyCommand(state, action.actor, action.command); validateGame(state);
+      const revision = receipts.length;
+      receipts.push({ commandId: `replay-${revision}`, acceptedRevision: revision + 1, payload: canonical({ matchId, expectedRevision: revision, actor: action.actor, command: action.command }) });
+    }
+    check(canonical(state) === canonical(file.final), 'The replay does not reproduce its final position.');
+    if (through < file.actions.length) {
+      const { historyLength, ...position } = checkpoints[through];
+      state = { ...position, history: state.history.slice(0, historyLength) };
+      checkpoints.splice(through); receipts.splice(through);
+    }
+    const expected = this.saved ? this.persisted : this.read();
+    this.persist({ schemaVersion: 1, catalogVersion: 1, matchId, revision: receipts.length, state, checkpoints, receipts, openHands: file.openHands, audit: file.audit }, expected);
     return this.snapshot();
   }
 
@@ -296,7 +376,7 @@ export class LocalSession {
     const current = this.current();
     check(typeof value === 'boolean', 'Open hands must be enabled or disabled.');
     this.checkStorage();
-    if (value !== current.openHands) this.persist({ ...current, revision: current.revision + 1, openHands: value });
+    if (value !== current.openHands) this.persist({ ...current, revision: current.revision + 1, openHands: value, audit: [...this.audit(current), { kind: 'openHands', value }] });
     return this.snapshot();
   }
 }

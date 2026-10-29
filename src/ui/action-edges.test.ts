@@ -1,9 +1,10 @@
+import { resolveDrop } from './drag';
 import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, RuleError } from '../game/engine';
 import { viewForPlayer } from '../game/views';
 import type { GameCommand, GameState, GameView, VisibleCard } from '../game/types';
 import { LocalSession } from '../session/local';
-import { actionUnavailableReason, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
+import { allVisible, actionUnavailableReason, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
 import type { CardAction, TableDraft } from './interaction';
 
 function attempt(state: GameState, command: GameCommand): GameState | undefined {
@@ -98,6 +99,12 @@ describe('projected interaction paths across complete games', () => {
           const next = attempt(state, command);
           expect(!!next, `seed ${seed}, step ${step}, ${context}, ${JSON.stringify(command)}`).toBe(enabled);
           if (next) options.push({ command, next });
+          if (view.phase === 'main' && ['play', 'setTrap', 'attack'].includes(command.type)) {
+            const sourceId = command.type === 'attack' ? command.attacker : 'cardId' in command ? command.cardId : '';
+            const source = allVisible(view).find(card => card.id === sourceId)!;
+            const target = command.type === 'attack' ? command.target ?? `player:${view.decisionPlayer === 0 ? 1 : 0}` : command.type === 'setTrap' ? `trap:${view.decisionPlayer}` : source.definition.kind === 'spell' ? 'play' : `field:${view.decisionPlayer}`;
+            expect(resolveDrop(view, emptyDraft(), sourceId, target).command, `drag ${context}`).toEqual(enabled ? command : undefined);
+          }
         };
         if (view.phase === 'main') {
           const actor = view.players[view.decisionPlayer];
@@ -107,6 +114,8 @@ describe('projected interaction paths across complete games', () => {
             for (const [action, command] of cardCommands(view, card)) check(command, !actionUnavailableReason(view, card, action), card.definition.name);
           }
           check({ type: 'endTurn' }, true, 'end turn');
+        } else if (view.phase === 'turnEnd') {
+          check({ type: 'endTurn' }, true, 'reviewed attack');
         } else if (view.phase === 'trap') {
           coverage.trapResponses++;
           const trap = view.players[view.decisionPlayer].trap;
@@ -125,6 +134,12 @@ describe('projected interaction paths across complete games', () => {
             if (draft.targets.some(id => id.startsWith('trap:'))) coverage.hiddenTrapTargets++;
             if (source.def === 'boseki' && draft.targets.some(id => view.players[view.decisionPlayer === 0 ? 1 : 0].graveyard.some(card => card.id === id))) coverage.opposingGraveyard++;
             const command = effectCommand(view, draft);
+            let dragged;
+            if (source.def === 'sake' || source.def === 'jufu') dragged = resolveDrop(view, draft, source.id, 'resolve');
+            else if (source.def === 'ougi') dragged = resolveDrop(view, emptyDraft(), draft.targets[0], draft.targets[1]);
+            else if (source.def === 'boseki') dragged = resolveDrop(view, emptyDraft(), draft.targets[0], `field:${view.decisionPlayer}`);
+            else dragged = resolveDrop(view, emptyDraft(), source.id, draft.targets[0]);
+            expect(dragged.command, `drag choice ${source.def}`).toEqual(command);
             reachable.add(choiceKey(state, command));
             check(command, true, source.def);
           }
@@ -165,6 +180,7 @@ describe('projected interaction paths across complete games', () => {
           const cards = [...actor.hand!, ...actor.field, ...(actor.trap && !('hidden' in actor.trap) ? [actor.trap] : [])];
           commands = cards.flatMap(card => cardCommands(view, card).filter(([action]) => !actionUnavailableReason(view, card, action)).map(([, command]) => command));
           commands.push({ type: 'endTurn' });
+        } else if (view.phase === 'turnEnd') { commands = [{ type: 'endTurn' }];
         } else if (view.phase === 'trap') {
           const trap = view.players[view.decisionPlayer].trap;
           commands = [{ type: 'respond', activate: false }];
@@ -193,6 +209,6 @@ describe('projected interaction paths across complete games', () => {
       phases.add(snapshot.view.phase);
       expect(await new LocalSession(storage).load()).toEqual(snapshot);
     }
-    expect([...phases].sort()).toEqual(['effect', 'finished', 'main', 'trap']);
+    expect([...phases].sort()).toEqual(['effect', 'finished', 'main', 'trap', 'turnEnd']);
   }, 60000);
 });

@@ -11,7 +11,7 @@ import type { GameView, VisibleCard } from '../game/types';
 afterEach(() => vi.unstubAllEnvs());
 
 function markup(view: GameView, openHands = false) {
-  return renderToStaticMarkup(<Table view={view} openHands={openHands} targetIds={[]} chosenTargets={[]} allocations={{}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
+  return renderToStaticMarkup(<Table view={view} openHands={openHands} targetIds={[]} chosenTargets={[]} allocations={{}} onSoul={() => {}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
 }
 
 it('renders a private rival hand and trap without private identities or inspectable controls', () => {

@@ -67,13 +67,15 @@ describe('rulebook game-end and damage boundaries', () => {
     expect(state).toEqual(before);
   });
 
-  it('one health remaining is not a win and the next player receives their normal draw', () => {
+  it('one health remaining is not a win; explicit end turn gives the next draw', () => {
     const state = position();
     const attacker = place(state, 'kappa', 0);
     state.players[1].health = 3;
-    const next = act(state, { type: 'attack', attacker, target: null });
+    let next = act(state, { type: 'attack', attacker, target: null });
     expect(next.result).toBeNull();
     expect(next.players[1].health).toBe(1);
+    expect(next.phase).toBe('turnEnd');
+    next = act(next, { type: 'endTurn' });
     expect(next.players[1].hand).toHaveLength(1);
     expect(next.turn).toBe(4);
   });

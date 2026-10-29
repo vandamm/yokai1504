@@ -29,15 +29,25 @@ Open the HTTP URL, not `index.html` directly. Keep the terminal server running w
 
 Run `npm run dev:lan` on your computer. Connect the phone to the same trusted Wi-Fi and open the **Network** URL printed by Vite, such as `http://192.168.1.98:5173/`. Keep the computer awake and the server running. This exposes the local development game to your LAN; it does not publish an online game. Matches are saved separately in each browser and origin.
 
-The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Tap a card for its actions, then tap marked board targets. Attack submits on the target tap; spells use an explicit confirmation. Sake shows a soul allocation stepper. **Details** opens readable card rules without changing a choice; larger desktops keep details and history beside the table. Short screens scroll the battlefield independently. Accepted actions, undo, and player/mode changes clear drafts. Pending effects save and resume after refresh.
+The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto **Play spell** or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drag onto their health. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
+
+Tap cards for inspection; **Details** opens a readable modal at every width, while desktop also has a sidebar. Resolving cards can be dragged onto marked targets. Sake uses + soul to stage allocations; Jufu stages up to two targets; drag the resolving card onto **Resolve** to finish either spell. Ougi transfers a soul by dragging donor yokai onto recipient. Boseki drags a graveyard card onto your field. Keyboard users can press Space to pick up a card, focus a destination and press Space to drop; Escape cancels.
+
+Attacks, destruction, summons, draws and soul changes animate before the accepted position appears. Public outcomes remain visible, and a player-changing result requires Continue before the private handoff. An attack ends the main phase and waits for **End turn**; it never automatically starts the next turn. Short screens scroll the battlefield independently. Pending effects save and resume after refresh.
 
 ## Play
 
-Start Game prepares the table, shuffles both decks, deals four cards each, and takes the starting player's mandatory first draw. Select a card to choose an action; use Details to inspect visible cards during targeting. Play cards and evoke souls up to a combined two times per main phase; releases and setting a trap have their own rules. Attack with one yokai or end the turn without attacking.
+Start Game prepares the table, shuffles both decks, deals four cards each, and takes the starting player's mandatory first draw. Drag cards to play or attack; use Details to inspect visible cards during targeting. Play cards and evoke souls up to a combined two times per main phase; releases and setting a trap have their own rules. Attack with one yokai or end the turn without attacking.
 
 Private play uses a handoff curtain whenever the decision maker changes. Open hands (testing) shows both hands and traps and skips those curtains; it preserves game rules and response choices. It does not reveal deck order. The mode can be changed during a local match.
 
 Undo restores the last accepted action and all of its consequences, including draws, damage, costs, and turn/response changes. Repeat undo to go back further. Undo history and the match save automatically in this browser. Undo cannot erase information players already saw. Starting a new match replaces the current local save.
+
+## Export and replay for debugging
+
+Choose **Menu → Export replay** to download a versioned JSON file containing the initial position, reproducible active command sequence, final position and accepted-action audit, including undo branches and mode changes. The file includes both hands and deck order.
+
+Choose **Import replay** from setup or the table menu. Load the JSON file or paste it, optionally choose an action number, then open it in a new session. The importer validates and re-executes every command before creating an independent save in a new tab. Undo can inspect earlier accepted positions without changing the original match. Older saves with automatic post-battle turns export with explicit End turn steps.
 
 ## Architecture and future online play
 
@@ -73,7 +83,7 @@ npm run build
 
 The suite covers individual card effects, combat and reactions, hidden-information projections, deterministic complete-match simulations, storage failures, save validation, duplicate/stale submissions, and undo/resume.
 
-Verified 2026-10-22: **197 tests passed across twelve files**, TypeScript and production build passed. The clean table was checked at ten phone/tablet/desktop sizes, including two complete gameplay audits, exact/overkill combat wins, empty-deck and extra-draw wins, direct targeting, trap responses, Sake/Ougi/Boseki, undo/refresh, duplicate controlled cards, long names, fifteen-card hands and zero Supply. Physical iPhone/Android tests and native text magnification remain unverified. See the [verification record](docs/verification.md).
+Verified 2026-10-29: **220 tests passed across eighteen files**, TypeScript and production build passed. Browser checks cover phone drag play, trap setting/activation, Sake/Jufu, keyboard drag, + soul, explicit battle completion, private result handoffs, desktop Details, replay export/import and independent undo. Six occupied field cards fit without document overflow at eight phone/desktop viewports from 390 × 844 to 1920 × 1080. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
 
 ## Credits
 

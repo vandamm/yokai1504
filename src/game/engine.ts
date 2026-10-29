@@ -113,17 +113,21 @@ function battleDefeat(state: GameState, id: string): boolean {
   }
   destroy(state,id); return true;
 }
+function awaitTurnEnd(state: GameState): void {
+  if (state.result) return;
+  state.phase='turnEnd'; state.pending=null;
+}
 function resolveAttack(state: GameState, attack: Attack): void {
   state.pending=null;
   if(state.result) return;
   const attackerController=controller(state,attack.attacker);
-  if(attackerController!==state.turnPlayer) { state.history.push('The declared attack is cancelled.'); endTurn(state); return; }
+  if(attackerController!==state.turnPlayer) { state.history.push('The declared attack is cancelled.'); awaitTurnEnd(state); return; }
   const defender=other(attackerController);
   let target=attack.target;
   if(target===null && state.players[defender].field.length>0) target=state.players[defender].field[0];
-  if(target!==null && controller(state,target)!==defender) { state.history.push('The declared attack is cancelled.'); endTurn(state); return; }
+  if(target!==null && controller(state,target)!==defender) { state.history.push('The declared attack is cancelled.'); awaitTurnEnd(state); return; }
   if(target===null) {
-    damage(state,defender,attackOf(state,attack.attacker),'direct attack'); endTurn(state); return;
+    damage(state,defender,attackOf(state,attack.attacker),'direct attack'); awaitTurnEnd(state); return;
   }
   const a=card(state,attack.attacker), b=card(state,target), aAttack=attackOf(state,a.id), bAttack=attackOf(state,b.id);
   // Possession is sampled after trap resolution; these triggers survive the originating yokai's battle destruction.
@@ -140,7 +144,7 @@ function resolveAttack(state: GameState, attack: Attack): void {
   if(state.result) return;
   if(aChochin) destroy(state,b.id);
   if(bChochin) destroy(state,a.id);
-  endTurn(state);
+  awaitTurnEnd(state);
 }
 function finishEffect(state: GameState, attack: Attack|null): void {
   state.pending=null;
@@ -245,6 +249,7 @@ export function applyCommand(state: GameState, actor: PlayerId, command: GameCom
     return next;
   }
   if(command.type==='choose') { choose(next,command); return next; }
+  if(next.phase==='turnEnd') { requireRule(command.type==='endTurn','The attack is complete. End the turn after reviewing the result.'); endTurn(next); return next; }
   requireRule(next.phase==='main' && actor===next.turnPlayer,'Finish the pending decision first.');
   switch(command.type) {
     case 'play': {

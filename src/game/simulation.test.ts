@@ -7,6 +7,7 @@ import type { GameCommand, GameState } from './types';
 function candidates(s:GameState):GameCommand[] {
   const actor=s.decisionPlayer, own=s.players[actor], other=s.players[actor===0?1:0];
   const fields=s.players.flatMap(p=>p.field);
+  if(s.phase==='turnEnd') return [{type:'endTurn'}];
   if(s.phase==='trap') return [{type:'respond',activate:true},{type:'respond',activate:false}];
   if(s.phase==='effect' && s.pending?.kind==='effect') {
     const def=s.cards[s.pending.cardId].def;
