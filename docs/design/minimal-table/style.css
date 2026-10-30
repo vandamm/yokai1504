@@ -117,3 +117,25 @@
 .divider-supply { position:absolute; left:10px; top:50%; transform:translateY(-50%); height:44px; min-width:50px; padding:6px; display:flex; align-items:center; justify-content:center; background:#fafbfc; z-index:8; }
 .divider-supply .supply-object { font-size:16px; font-weight:650; }
 .divider-supply .supply-object i { width:10px; height:16px; }
+
+/* Desktop objects use the available width; phone geometry stays compact. */
+.object-label { display:none; }
+.desktop .minimal-screen .pile-object { display:flex; align-items:center; justify-content:center; width:58px; height:86px; box-shadow:3px -3px #d0dae1; }
+.desktop .minimal-screen .pile-object.empty { box-shadow:none; }
+.desktop .minimal-screen .pile-object.trap-card { width:64px; height:94px; flex-direction:column; gap:9px; box-shadow:none; }
+.desktop .minimal-screen .trap-symbol { font-size:16px; }
+.desktop .minimal-screen .object-label { display:block; font:10px/1.2 'Segoe UI',sans-serif; color:#526673; }
+.desktop .minimal-screen .seat-piles { left:24px; gap:14px; }
+.desktop .minimal-screen .seat-trap { right:24px; }
+.desktop .minimal-screen .seat-near { bottom:0; height:180px; }
+.desktop .minimal-screen .seat-near .seat-piles,
+.desktop .minimal-screen .seat-near .seat-trap { top:0; transform:none; }
+.desktop .minimal-screen .seat-near .health-near { left:24px; top:auto; bottom:20px; transform:none; width:80px; height:56px; }
+.desktop .minimal-screen .seat-near .life { width:80px; height:56px; }
+.desktop .minimal-screen .seat-near .life strong { width:80px; font-size:36px; line-height:40px; }
+.desktop .minimal-screen .seat-near .player-caption { top:42px; font-size:12px; line-height:14px; }
+.desktop .minimal-screen .seat-near .action-dots { left:calc(100% + 12px); top:17px; }
+.desktop .minimal-screen .drop-field { left:180px; right:180px; }
+.desktop .minimal-screen .drop-trap { right:14px; bottom:76px; width:84px; height:114px; }
+.desktop .minimal-screen .floating-choice { bottom:8px; }
+.desktop .minimal-screen .floating-choice:after { right:41px; top:-6px; height:5px; }

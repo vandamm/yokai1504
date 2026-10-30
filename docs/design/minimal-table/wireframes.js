@@ -24,9 +24,9 @@ function life(near=false){
 }
 function seatStatus(near=false){
  const response=['trap','effect'].includes(state.scene),owner=near?'Your':'Opponent';
- const piles=region(near?'your-piles':'enemy-piles',`${owner} deck and graveyard at the left screen edge`,'<i class="pile-object"></i><i class="pile-object empty"></i>','seat-piles');
- const trap=region(near?'trap':'enemy-trap',`${owner} trap at the right screen edge`,`<i class="pile-object trap-card">${near?(response?'Ougi':'×'):'?'}</i>`,'seat-trap');
- return region(near?'your-seat':'opponent-seat',`${owner} seat: edge piles, centered health, edge trap`,`${piles}${life(near)}${trap}`,`seat-status ${near?'seat-near':'seat-far'}`);
+ const piles=region(near?'your-piles':'enemy-piles',`${owner} deck and graveyard at the left screen edge`,'<i class="pile-object"><span class="object-label">Deck</span></i><i class="pile-object empty"><span class="object-label">Graveyard</span></i>','seat-piles');
+ const trap=region(near?'trap':'enemy-trap',`${owner} trap at the right screen edge`,`<i class="pile-object trap-card"><span class="trap-symbol">${near?(response?'Ougi':'×'):'?'}</span><span class="object-label">Trap</span></i>`,'seat-trap');
+ return region(near?'your-seat':'opponent-seat',`${owner} seat: piles, health, trap`,`${piles}${life(near)}${trap}`,`seat-status ${near?'seat-near':'seat-far'}`);
 }
 function menu(){return `<span class="menu-symbol">☰${state.scene==='return'?'<i class="new-count">2</i>':''}</span>`;}
 function hand(){
@@ -65,7 +65,7 @@ const commonNotes={play:'Destinations exist only during selection or drag. No Pl
 const annotations={a:{...commonNotes,main:'The field is shown at its full capacity: three cards per player. Supply is on the left end of the divider; End turn and Undo on the right. The health values and fans remain mirrored.'}};
 function render(){
  $('#wireframes').className=`wireframes ${state.device} ${state.commenting?'commenting':''}`;
- $('#wireframes').innerHTML=['a'].map(option=>`<article class="concept" data-option="${option}"><div class="concept-heading"><h2>${option.toUpperCase()} · ${names[option]}</h2><p>${descriptions[option]}</p></div><div class="frame-wrap"><div class="frame">${header(option)}<div class="wf-body">${({a})[option]()}</div></div></div><p class="flow-line"><strong>${moments[state.scene]}</strong>${flows[option][state.scene]}</p><p class="annotation">${annotations[option][state.scene]}</p></article>`).join('');
+ $('#wireframes').innerHTML=['a'].map(option=>`<article class="concept" data-option="${option}"><div class="concept-heading"><h2>${option.toUpperCase()} · ${names[option]}</h2><p>${state.device==='desktop'?'Larger deck, graveyard and trap. Your health and actions sit in the lower-left corner; the field keeps three cards per side.':descriptions[option]}</p></div><div class="frame-wrap"><div class="frame">${header(option)}<div class="wf-body">${({a})[option]()}</div></div></div><p class="flow-line"><strong>${moments[state.scene]}</strong>${flows[option][state.scene]}</p><p class="annotation">${state.device==='desktop'&&state.scene==='main'?'Full fields stay centered. Larger piles and traps remain at the edges; your health and actions occupy the lower-left corner.':annotations[option][state.scene]}</p></article>`).join('');
  for(const kind of ['device','scene'])document.querySelectorAll(`[data-${kind}]`).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[kind]===state[kind])));
  $('#comment-mode').setAttribute('aria-pressed',String(state.commenting));$('#comment-mode').textContent=state.commenting?'Stop commenting':'Pin a comment';
  fit();
