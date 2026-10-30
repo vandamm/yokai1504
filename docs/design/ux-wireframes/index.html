@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Yokai 1504 · UX wireframes</title><link rel="stylesheet" href="./style.css"></head><body>
+<header class="review-header"><div><h1>Three ways to play Yokai 1504</h1><p>Low-fidelity UX wireframes. Same game position, different interaction models.</p></div><button id="comments-toggle">Comments <span id="comment-count">0</span></button></header>
+<main>
+  <section class="review-controls" aria-label="Wireframe controls">
+    <div class="segments" aria-label="Screen size"><button data-device="phone" aria-pressed="true">Phone</button><button data-device="desktop" aria-pressed="false">Desktop</button></div>
+    <div class="segments states" aria-label="Moment"><button data-scene="main" aria-pressed="true">Start of turn</button><button data-scene="play" aria-pressed="false">Play a spell</button><button data-scene="attack" aria-pressed="false">Choose an attack</button><button data-scene="trap" aria-pressed="false">Trap response</button><button data-scene="return" aria-pressed="false">Return after time away</button></div>
+    <button id="comment-mode" aria-pressed="false">Pin a comment</button>
+  </section>
+  <p class="review-guidance" id="guidance">Compare what each screen asks you to do first. Controls drawn inside wireframes are intentionally static.</p>
+  <div id="wireframes" class="wireframes phone"></div>
+  <section class="comparison"><h2>The interaction contract changes</h2><div class="table-scroll"><table><thead><tr><th>Question</th><th>A · Direct table</th><th>B · Guided turn</th><th>C · Activity desk</th></tr></thead><tbody>
+    <tr><th>Where do I begin?</th><td>A card on the table or in my hand</td><td>An intention: play, attack or evoke</td><td>What changed and what needs my response</td></tr>
+    <tr><th>Where is my hand?</th><td>Always at the bottom; expand to inspect</td><td>Inside the Play task</td><td>In the move composer or Table tab</td></tr>
+    <tr><th>How do I commit?</th><td>Choose/drop onto a legal destination</td><td>Review the completed action, then confirm</td><td>Submit a single-action draft</td></tr>
+    <tr><th>Where does a trap interrupt?</th><td>Beside the actual trap on the board</td><td>A dedicated response workspace</td><td>An unresolved decision in the journal</td></tr>
+    <tr><th>How do I undo?</th><td>One nearby Undo; Cancel only clears selection</td><td>Back edits a choice; Undo reverses a committed action</td><td>Edit/discard drafts; Undo the latest committed receipt</td></tr>
+    <tr><th>What is the tradeoff?</th><td>Fast, but contextual actions need discovery</td><td>Clearer decisions, but more steps</td><td>Good for returning later, but less immediate tabletop feel</td></tr>
+  </tbody></table></div></section>
+  <section class="common"><h2>Shared baseline</h2><p>Explicit actor and action count. No automatic End turn. Required decisions never disappear. Motion explains a change; a readable result remains. Drag can remain a shortcut alongside tap and keyboard selection. Hidden information never appears in a predicted result.</p><p>These are proposals, not an approved change to the game. Single-action drafts can be interrupted by traps; a whole turn is never queued.</p></section>
+  <p class="save-status" id="save-status" role="status">Comments save locally. No gameplay or animation is implemented here.</p>
+</main>
+<aside id="comments-panel" hidden aria-label="Wireframe comments"><div class="panel-heading"><h2>Comments</h2><button id="comments-close" aria-label="Close comments">×</button></div><div id="comments-list"></div></aside>
+<dialog id="composer"><form id="comment-form"><h2 id="composer-title">Comment</h2><p id="comment-context"></p><label for="comment-note">What would you change?</label><textarea id="comment-note" rows="5" maxlength="2000" required></textarea><div class="dialog-actions"><button id="comment-cancel" type="button">Cancel</button><button id="comment-save" type="submit">Save comment</button></div><p id="comment-error" role="alert"></p></form></dialog>
+<script type="module" src="./wireframes.js"></script></body></html>
