@@ -1,24 +1,24 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Yokai 1504 · Design review</title><link rel="stylesheet" href="./review.css"></head>
 <body>
-  <header class="review-header"><div><h1>Yokai 1504 <span>Design review</span></h1><p>Choose an outline. Switch whose move it is. Click any part to leave a comment.</p></div><button id="comments-toggle" type="button">Comments <span id="comment-count">0</span></button></header>
+  <header class="review-header"><div><h1>Yokai 1504 <span>Design review</span></h1><p>Three new effects. Switch whose move it is, replay the motion, and pin your comments.</p></div><button id="comments-toggle" type="button">Comments <span id="comment-count">0</span></button></header>
   <main>
     <div class="review-tools">
-    <section class="options" aria-label="Outline options">
-      <button class="option selected" data-option="a" type="button" aria-pressed="true"><span class="option-swatch swatch-a"><i></i><i></i></span><span><b>A · Blue frame</b><small>Crisp, continuous outline · recommended</small></span></button>
-      <button class="option" data-option="b" type="button" aria-pressed="false"><span class="option-swatch swatch-b"><i></i><i></i></span><span><b>B · Amber double frame</b><small>A brighter, warmer signal</small></span></button>
-      <button class="option" data-option="c" type="button" aria-pressed="false"><span class="option-swatch swatch-c"><i></i><i></i></span><span><b>C · Violet corners</b><small>Lighter edges, stronger corners</small></span></button>
+    <section class="options" aria-label="Visual effect options">
+      <button class="option selected" data-option="a" type="button" aria-pressed="true"><span class="option-swatch swatch-a"><i></i><i></i></span><span><b>A · Spotlight</b><small>A pool of light and lifted card shadows</small></span></button>
+      <button class="option" data-option="b" type="button" aria-pressed="false"><span class="option-swatch swatch-b"><i></i><i></i></span><span><b>B · Spirit mist</b><small>Drifting wisps and tiny floating lights</small></span></button>
+      <button class="option" data-option="c" type="button" aria-pressed="false"><span class="option-swatch swatch-c"><i></i><i></i></span><span><b>C · Ink tide</b><small>Japanese waves and a spreading ripple</small></span></button>
     </section>
     <section class="preview-controls" aria-label="Mockup controls">
       <div class="segments" aria-label="Preview device"><button data-device="desktop" type="button" aria-pressed="true">Desktop</button><button data-device="phone" type="button" aria-pressed="false">Phone</button></div>
       <div class="segments" aria-label="Who acts"><button data-actor="mine" type="button" aria-pressed="true">Your move</button><button data-actor="opponent" type="button" aria-pressed="false">Opponent’s move</button></div>
       <label>Moment <select id="scene" aria-label="Moment"><option value="main">Main actions</option><option value="trap">Trap question</option><option value="ougi">Ougi choice</option><option value="notice">Action message</option><option value="connection">Connection retry</option></select></label>
-      <button id="tooltip-toggle" type="button" aria-pressed="false">Show tooltip</button>
+      <div class="review-tools-pair"><button id="replay-effect" type="button">Replay effect</button><button id="tooltip-toggle" type="button" aria-pressed="false">Show tooltip</button></div>
       <button id="comment-mode" type="button" aria-pressed="false">Add comment</button>
       <button id="prefer" type="button" class="prefer">Prefer option A</button>
     </section>
     </div><div class="review-preview">
-    <div class="preview-caption"><span id="preview-caption">Blue frame · Your move · Desktop</span><span id="save-status" role="status">Comments save locally for review.</span></div>
+    <div class="preview-caption"><span id="preview-caption">Spotlight · Your move · Desktop</span><span id="save-status" role="status">Comments save locally for review.</span></div>
     <div id="preview-stage"><div id="frame-wrap"><iframe id="board" title="Interactive Yokai table mockup" src="./board.html"></iframe></div></div>
     <p class="review-note">The table keeps the same size across every moment. Prompts replace the controls beneath your health. Hover with Shift, or tap a card, to inspect it.</p>
     </div>

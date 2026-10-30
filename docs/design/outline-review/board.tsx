@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import { createGame } from '../../../src/game/engine';
 import { viewForPlayer } from '../../../src/game/views';
 import { CARDS } from '../../../src/game/catalog';
@@ -12,8 +13,8 @@ import './board.css';
 type Scene = 'main' | 'trap' | 'ougi' | 'notice' | 'connection';
 type Option = 'a' | 'b' | 'c';
 interface Comment { id: string; option: Option; actor: string; scene: Scene; target: string; region: string; x: number; y: number; }
-interface Preview { option: Option; actor: 'mine' | 'opponent'; scene: Scene; tooltip: boolean; commentMode: boolean; comments: Comment[]; selectedComment?: string; }
-const initial: Preview = { option: 'a', actor: 'mine', scene: 'main', tooltip: false, commentMode: false, comments: [] };
+interface Preview { option: Option; actor: 'mine' | 'opponent'; scene: Scene; tooltip: boolean; commentMode: boolean; comments: Comment[]; replay: number; selectedComment?: string; }
+const initial: Preview = { option: 'a', actor: 'mine', scene: 'main', tooltip: false, commentMode: false, comments: [], replay: 0 };
 const send = (message: object) => parent.postMessage(message, location.origin);
 const game = createGame({ seed: 42, names: ['Alex', 'Poli'], startingPlayer: 0 });
 game.turn = 3;
@@ -45,13 +46,14 @@ function position(preview: Preview): GameView {
 }
 function targetElement(target: string): Element | null {
   if (target.startsWith('card:')) return document.querySelector(`[data-card-id="${CSS.escape(target.slice(5))}"]`);
-  const selectors: Record<string, string> = { outline: '.turn-frame', prompts: '.prototype-controls', toolbar: '.app-header', divider: '.table-divider', history: '.prototype-history', 'hand:0': '.bottom-hand .hand-window', 'hand:1': '.top-hand .hand-window', 'summary:0': '.bottom-hand .seat-summary', 'summary:1': '.top-hand .seat-summary', 'field:0': '.lower-seat', 'field:1': '.upper-seat', 'tooltip-art': '.tooltip-art', 'tooltip-text': '.tooltip-copy' };
+  const selectors: Record<string, string> = { atmosphere: '.turn-effect', outline: '.turn-effect', prompts: '.prototype-controls', toolbar: '.app-header', divider: '.table-divider', history: '.prototype-history', 'hand:0': '.bottom-hand .hand-window', 'hand:1': '.top-hand .hand-window', 'summary:0': '.bottom-hand .seat-summary', 'summary:1': '.top-hand .seat-summary', 'field:0': '.lower-seat', 'field:1': '.upper-seat', 'tooltip-art': '.tooltip-art', 'tooltip-text': '.tooltip-copy' };
   return selectors[target] ? document.querySelector(selectors[target]) : null;
 }
 function App() {
   const [preview, setPreview] = useState(initial), [donor, setDonor] = useState<string>();
   const [inspected, setInspected] = useState<VisibleCard>(), [hovered, setHovered] = useState<VisibleCard>();
-  const [shift, setShift] = useState(false), [frame, setFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [shift, setShift] = useState(false), [effectBounds, setEffectBounds] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [effectHost, setEffectHost] = useState<HTMLElement | null>(null);
   const [pins, setPins] = useState<{ comment: Comment; x: number; y: number; number: number }[]>([]);
   const root = useRef<HTMLDivElement>(null), view = position(preview), mine = preview.actor === 'mine';
   const all = view.players.flatMap(player => [...player.field, ...(player.hand ?? []), ...player.graveyard]);
@@ -70,10 +72,12 @@ function App() {
   useEffect(() => { setDonor(undefined); setInspected(undefined); }, [preview.actor, preview.scene]);
   useLayoutEffect(() => {
     const measure = () => {
-      const table = document.querySelector('.table-surface')?.getBoundingClientRect(), divider = document.querySelector('.table-divider')?.getBoundingClientRect();
+      const surface = document.querySelector<HTMLElement>('.table-surface');
+      const table = surface?.getBoundingClientRect(), divider = document.querySelector('.table-divider')?.getBoundingClientRect();
       if (!table || !divider) return;
       const middle = divider.top + divider.height / 2;
-      setFrame({ x: table.left + 3, y: mine ? middle + 2 : table.top + 3, width: table.width - 6, height: mine ? table.bottom - middle - 5 : middle - table.top - 5 });
+      setEffectHost(surface);
+      setEffectBounds({ x: 0, y: mine ? middle - table.top : 0, width: table.width, height: mine ? table.bottom - middle : middle - table.top });
       setPins(preview.comments.map((comment, index) => ({ comment, number: index + 1 })).filter(({ comment }) => comment.option === preview.option && comment.actor === preview.actor && comment.scene === preview.scene).flatMap(({ comment, number }) => {
         const el = targetElement(comment.target); if (!el) return [];
         const rect = el.getBoundingClientRect(); return [{ comment, number, x: rect.left + rect.width * comment.x, y: rect.top + rect.height * comment.y }];
@@ -102,10 +106,8 @@ function App() {
     else if (el.closest('[data-card-id]')) { const card = el.closest<HTMLElement>('[data-card-id]')!; target = `card:${card.dataset.cardId}`; region = 'Card on the table'; }
     else if (el.closest('.seat-summary')) { const near = !!el.closest('.bottom-hand'); target = `summary:${near ? 0 : 1}`; region = near ? 'Your health and controls' : 'Opponent health'; }
     else if (el.closest('.hand-window')) { const near = !!el.closest('.bottom-hand'); target = `hand:${near ? 0 : 1}`; region = near ? 'Your hand' : 'Opponent hand'; }
-    else if (el.closest('.table-seat')) { const near = !!el.closest('.lower-seat'); target = `field:${near ? 0 : 1}`; region = near ? 'Your field' : 'Opponent field'; }
-    else { target = 'outline'; region = 'Active-side outline'; }
-    const edge = Math.min(Math.abs(event.clientX - frame.x), Math.abs(event.clientX - frame.x - frame.width), Math.abs(event.clientY - frame.y), Math.abs(event.clientY - frame.y - frame.height));
-    if (!el.closest('.prototype-tooltip') && event.clientX >= frame.x - 5 && event.clientX <= frame.x + frame.width + 5 && event.clientY >= frame.y - 5 && event.clientY <= frame.y + frame.height + 5 && edge < 9) { target = 'outline'; region = 'Active-side outline'; }
+    else if (el.closest('.table-seat')) { const near = !!el.closest('.lower-seat'); target = `field:${near ? 0 : 1}`; region = near ? 'Your field and turn effect' : 'Opponent field and turn effect'; }
+    else { target = 'atmosphere'; region = 'Turn effect'; }
     const rect = targetElement(target)?.getBoundingClientRect(); if (!rect) return;
     send({ type: 'review:target', target, region, x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) });
   }
@@ -126,7 +128,7 @@ function App() {
     <main className="game-workspace"><div className="drag-surface"><div className="table-play"><Table view={view} viewer={0} openHands={false} targetIds={preview.scene === 'ougi' && mine ? all.filter(card => card.zone === 'field' && (donor ? card.id !== donor && card.souls < card.definition.cap : card.souls > 0)).map(card => card.id) : []} chosenTargets={donor ? [donor] : []} allocations={{}} selectedId={donor} onCard={inspect} onTrap={() => {}} onGraveyard={() => {}} turnControls={controls} /></div></div>
       <aside className="details-rail prototype-history"><div className="history-status"><strong>{view.turnPlayer === 0 ? 'Your turn' : 'Poli’s turn'}</strong><span>Turn 2</span></div><h2>Public history</h2><section><h3>Turn 2: Alex</h3><p>Alex draws a card.</p><p>Alex summons <button type="button" className="history-card-link" onClick={() => setInspected(view.players[0].field[0])}>Yuki-onna</button>.</p><p>Alex evokes a soul onto Yuki-onna.</p></section><section><h3>Turn 2: Poli</h3><p>Poli draws a card.</p><p>Poli summons <button type="button" className="history-card-link" onClick={() => setInspected(view.players[1].field[0])}>Kappa</button>.</p><p>Poli sets a spell trap.</p></section><p className="history-hint">Shift + hover a card to inspect.</p></aside>
     </main>
-    <div className="turn-frame" aria-hidden="true" style={{ left: frame.x, top: frame.y, width: frame.width, height: frame.height }}><i /><i /><i /><i /></div>
+    {effectHost && createPortal(<div key={`${preview.option}-${preview.actor}-${preview.replay}`} className="turn-effect" aria-hidden="true" style={{ left: effectBounds.x, top: effectBounds.y, width: effectBounds.width, height: effectBounds.height }}><div className="effect-pattern" /><i /><i /><i /><i /><i /><i /><i /></div>, effectHost)}
     {shown && <div className="prototype-tooltip" role="tooltip" aria-label={`${shown.definition.name} details`}><div className="tooltip-art"><img src={publicAsset(`cards/${shown.def}.png`)} alt={`${shown.definition.name} card`} /></div><div className="tooltip-copy"><button type="button" className="tooltip-close" aria-label="Close card details" onClick={() => { setInspected(undefined); send({ type: 'review:tooltip', show: false }); }}>×</button><span className="tooltip-type">{shown.definition.kind === 'yokai' ? `${shown.definition.effectType} yokai` : 'Spell · can be set as a trap'}</span><h2>{shown.definition.name}</h2><p className="japanese" lang="ja">{shown.definition.japanese}</p><p className="card-rule">{shown.definition.text}</p>{shown.definition.effectType === 'possession' && <p className="rule-note">Possession is active while this yokai has a soul.</p>}{shown.definition.effectType === 'passive' && <p className="rule-note">This passive effect is always active.</p>}</div></div>}
     {preview.commentMode && <><div className="comment-instruction">Click a part to comment</div>{pins.map(pin => <button type="button" key={pin.comment.id} className={`comment-pin ${preview.selectedComment === pin.comment.id ? 'focused' : ''}`} style={{ left: pin.x, top: pin.y }} aria-label={`Read comment ${pin.number} on ${pin.comment.region}`} onClick={() => send({ type: 'review:comment', id: pin.comment.id })}>{pin.number}</button>)}</>}
   </div>;

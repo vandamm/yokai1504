@@ -1,7 +1,7 @@
 const $ = selector => document.querySelector(selector);
 const board = $('#board'), panel = $('#comments-panel'), composer = $('#composer');
-const options = { a: 'Blue frame', b: 'Amber double frame', c: 'Violet corners' };
-const state = { option: 'a', actor: 'mine', scene: 'main', device: innerWidth < 700 ? 'phone' : 'desktop', tooltip: false, commentMode: false };
+const options = { a: 'Spotlight', b: 'Spirit mist', c: 'Ink tide' };
+const state = { option: 'a', actor: 'mine', scene: 'main', device: innerWidth < 700 ? 'phone' : 'desktop', tooltip: false, commentMode: false, replay: 0 };
 let feedback = { preference: null, comments: [] }, pending, selectedComment;
 const api = '/api/design-review';
 function status(message, error = false) { $('#save-status').textContent = message; $('#save-status').classList.toggle('error', error); }
@@ -32,6 +32,7 @@ function update() {
 for (const kind of ['option', 'actor', 'device']) document.querySelectorAll(`[data-${kind}]`).forEach(button => button.addEventListener('click', () => { state[kind] = button.dataset[kind]; update(); }));
 $('#scene').addEventListener('change', event => { state.scene = event.target.value; update(); });
 $('#tooltip-toggle').addEventListener('click', () => { state.tooltip = !state.tooltip; update(); });
+$('#replay-effect').addEventListener('click', () => { state.replay++; send(); });
 $('#comment-mode').addEventListener('click', () => { state.commentMode = !state.commentMode; update(); status(state.commentMode ? 'Click a part of the mockup to comment on it.' : 'Comments save locally for review.'); });
 $('#prefer').addEventListener('click', async () => { try { await request({ type: 'preference', option: state.option }); status(`Preferred option ${state.option.toUpperCase()} saved.`); } catch (error) { status(error.message, true); } });
 $('#comments-toggle').addEventListener('click', () => { panel.hidden = !panel.hidden; });
