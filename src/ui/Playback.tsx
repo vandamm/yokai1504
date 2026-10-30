@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { VisualEvent } from './presentation';
 import { publicAsset } from './assets';
+import { CardFace } from './CardFace';
 export interface Rect { x: number; y: number; width: number; height: number; }
 export type Geometry = Record<string, Rect>;
 export function captureGeometry(): Geometry {
@@ -13,13 +14,19 @@ export function captureGeometry(): Geometry {
   const supply = document.querySelector('.toolbar-supply'); if (supply) save('supply', supply);
   return result;
 }
-export function Playback({ events, geometry, onComplete }: { events: VisualEvent[]; geometry: Geometry; onComplete: () => void }) {
-  useEffect(() => { const timer = window.setTimeout(onComplete, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 1400); return () => window.clearTimeout(timer); }, []);
+export function Playback({ events, geometry, onComplete, delay = 0 }: { events: VisualEvent[]; geometry: Geometry; onComplete: () => void; delay?: number }) {
+  const [started, setStarted] = useState(delay === 0);
+  useEffect(() => {
+    const start = window.setTimeout(() => setStarted(true), delay);
+    const timer = window.setTimeout(onComplete, delay + (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 1400));
+    return () => { window.clearTimeout(start); window.clearTimeout(timer); };
+  }, []);
+  if (!started) return null;
   return <div className="playback-layer" aria-hidden="true"><style>{events.filter(event => event.card && ['attack', 'death', 'move'].includes(event.kind)).map(event => `[data-card-id="${CSS.escape(event.card!.id)}"] { visibility: hidden; }`).join('\n')}</style>{events.map((event, index) => {
     const from = geometry[event.from], to = geometry[event.to]; if (!from || !to) return null;
     const token = event.kind === 'damage';
     const width = token ? 44 : Math.min(from.width, 130), height = token ? 44 : width * 947 / 640;
     const style = { left: from.x + from.width / 2 - width / 2, top: from.y + from.height / 2 - height / 2, width, height, '--dx': `${to.x + to.width / 2 - from.x - from.width / 2}px`, '--dy': `${to.y + to.height / 2 - from.y - from.height / 2}px` } as CSSProperties;
-    return <div key={index} className={`playback-piece playback-${event.kind}`} style={style}>{event.kind === 'damage' ? `−${event.amount}` : <img src={publicAsset(`cards/${event.kind === 'draw' ? event.seat === 0 ? 'back.svg' : 'back-ochre.svg' : `${event.card?.def}.png`}`)} alt="" />}{event.kind === 'draw' && event.amount! > 1 && <b className="draw-amount">×{event.amount}</b>}</div>;
+    return <div key={index} className={`playback-piece playback-${event.kind}`} style={style}>{event.kind === 'damage' ? `−${event.amount}` : event.card && event.kind !== 'draw' ? <CardFace card={event.card} /> : <img src={publicAsset(`cards/${event.seat === 0 ? 'back.svg' : 'back-ochre.svg'}`)} alt="" />}{event.kind === 'draw' && event.amount! > 1 && <b className="draw-amount">×{event.amount}</b>}</div>;
   })}</div>;
 }

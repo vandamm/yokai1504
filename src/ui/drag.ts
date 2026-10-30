@@ -1,33 +1,28 @@
 import type { GameCommand, GameView, VisibleCard } from '../game/types';
-import { actionUnavailableReason, allVisible, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, effectUnavailableReason, emptyDraft, updateDraft } from './interaction';
+import { actionUnavailableReason, allVisible, allocationLimit, canConfirmEffect, decisionCandidates, effectCommand, effectSource, emptyDraft, updateDraft } from './interaction';
 import type { DraftEvent, TableDraft } from './interaction';
 export interface DropResult { command?: GameCommand; event?: DraftEvent; reason?: string; }
 const invalid = (reason = 'Drop on a highlighted destination.') => ({ reason });
 export function canDragCard(view: GameView, card: VisibleCard): boolean {
   if (view.result || card.controller !== view.decisionPlayer) return false;
   if (view.phase === 'main') return card.zone === 'hand' || card.zone === 'field' || card.zone === 'trap';
-  if (view.phase === 'trap') return card.zone === 'trap';
   if (view.phase !== 'effect') return false;
   const source = effectSource(view);
-  return card.id === source?.id || source?.def === 'ougi' && card.zone === 'field' || source?.def === 'boseki' && card.zone === 'graveyard';
+  return source?.def !== 'ougi' && (card.id === source?.id || source?.def === 'boseki' && card.zone === 'graveyard');
 }
 export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string, targetId: string): DropResult {
   const cards = allVisible(view), card = cards.find(c => c.id === sourceId), target = cards.find(c => c.id === targetId);
   if (!card || view.result || sourceId === targetId) return invalid();
   const own = view.decisionPlayer, opponent = own === 0 ? 1 : 0;
   if (view.phase === 'trap') {
-    if (card.zone === 'trap' && card.controller === own && (targetId === `field:${own}` || target?.zone === 'field' && target.controller === own)) { const reason = effectUnavailableReason(view, card); return reason ? invalid(reason) : { command: { type: 'respond', activate: true } }; }
-    return invalid('Drag your trap onto your field, or keep it hidden.');
+    return invalid('Choose Activate trap or Keep hidden.');
   }
   if (view.phase === 'effect') {
     const source = effectSource(view); if (!source) return invalid();
+    if (source.def === 'ougi') return invalid('Select the donor, then the recipient on the field.');
     if (source.def === 'boseki' && card.zone === 'graveyard' && (targetId === `field:${own}` || target?.zone === 'field' && target.controller === own)) {
       const choice = { ...emptyDraft(), targets: [card.id] };
       return canConfirmEffect(view, choice) ? { command: effectCommand(view, choice) } : invalid();
-    }
-    if (source.def === 'ougi' && card.zone === 'field' && target?.zone === 'field') {
-      const choice = { ...emptyDraft(), targets: [card.id, target.id] };
-      return canConfirmEffect(view, choice) ? { command: effectCommand(view, choice) } : invalid('Move a soul from a yokai that has one to a different yokai with room.');
     }
     if (sourceId !== source.id) return invalid('Drag the resolving card to a marked target.');
     if (targetId === 'resolve') return canConfirmEffect(view, draft) ? { command: effectCommand(view, draft) } : invalid('Choose the required targets first.');
@@ -52,7 +47,7 @@ export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string,
     const reason = actionUnavailableReason(view, card, 'attack');
     if (reason) return invalid(reason);
     if (target?.zone === 'field' && target.controller === opponent) return { command: { type: 'attack', attacker: card.id, target: target.id } };
-    if (targetId === `player:${opponent}` && !view.players[opponent].field.length) return { command: { type: 'attack', attacker: card.id, target: null } };
+    if ((targetId === `player:${opponent}` || targetId === `field:${opponent}`) && !view.players[opponent].field.length) return { command: { type: 'attack', attacker: card.id, target: null } };
   }
   return invalid();
 }

@@ -1,12 +1,12 @@
 import { CARDS, DECK } from '../game/catalog';
-import { applyCommand, canResolvePendingEffect, createGame } from '../game/engine';
+import { applyCommand, canResolvePendingEffect, createGame, previewBattle } from '../game/engine';
 import { viewForLocalTesting, viewForPlayer } from '../game/views';
 import { createId } from './id';
 import type { GameCommand, GameState, GameView, PlayerId, SetupOptions } from '../game/types';
 
 export const SAVE_KEY = 'yokai-1504.local-match.v1';
 export interface SessionStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; }
-export interface SessionSnapshot { matchId: string; revision: number; view: GameView; openHands: boolean; canUndo: boolean; recentHistory: string[]; }
+export interface SessionSnapshot { matchId: string; revision: number; view: GameView; battleView?: GameView; openHands: boolean; canUndo: boolean; recentHistory: string[]; }
 interface Submission { matchId: string; commandId: string; expectedRevision: number; actor: PlayerId; command: GameCommand; }
 type Position = Omit<GameState, 'history'> & { historyLength: number };
 interface Receipt { commandId: string; payload: string; acceptedRevision: number; }
@@ -229,7 +229,11 @@ export class LocalSession {
   private snapshot(): SessionSnapshot {
     const match = this.current();
     const view = match.openHands ? viewForLocalTesting(match.state) : viewForPlayer(match.state, match.state.decisionPlayer);
-    return copy({ matchId: match.matchId, revision: match.revision, view, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0) });
+    const checkpoint = match.checkpoints.at(-1), receipt = match.receipts.at(-1);
+    const command: GameCommand | undefined = receipt?.acceptedRevision === match.revision ? JSON.parse(receipt.payload).command : undefined;
+    const battle = checkpoint && command ? previewBattle({ ...checkpoint, history: match.state.history.slice(0, checkpoint.historyLength) }, command) : undefined;
+    const battleView = battle && (match.openHands ? viewForLocalTesting(battle) : viewForPlayer(battle, battle.decisionPlayer));
+    return copy({ matchId: match.matchId, revision: match.revision, view, battleView, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0) });
   }
 
   private checkRevision(expected: number) {

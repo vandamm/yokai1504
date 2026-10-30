@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand, attackOf, canActivate, createGame, RuleError } from './engine';
+import { applyCommand, attackOf, canActivate, createGame, previewBattle, RuleError } from './engine';
 import { CARDS, DECK } from './catalog';
 import type { CardDefId, GameCommand, GameState, PlayerId } from './types';
 
@@ -222,6 +222,20 @@ describe('combat and timing', () => {
     const s=fixture(), a=put(s,'tengu',0), b=put(s,'chochin-kozo',1,'field',1); put(s,'ougi',1,'trap');
     const n=act(act(act(s,{type:'attack',attacker:a,target:b}),{type:'respond',activate:true}),{type:'choose',targets:[b,a]}); expect(n.players[0].field).toContain(a); expect(n.players[1].graveyard).toContain(b); invariant(n);
   });
+  it('shows Ougi making Yuki-onna and Kappa both 4 ATK before the tied battle', () => {
+    const s=fixture(), yuki=put(s,'yuki-onna',0,'field',2), kappa=put(s,'kappa',1); put(s,'ougi',1,'trap');
+    const pending=act(act(s,{type:'attack',attacker:yuki,target:kappa}),{type:'respond',activate:true});
+    const command: GameCommand={type:'choose',targets:[yuki,kappa]};
+    const untouched=structuredClone(pending), preview=previewBattle(pending,command)!;
+    expect(pending).toEqual(untouched);
+    expect(preview.cards[yuki].souls).toBe(1); expect(preview.cards[kappa].souls).toBe(1);
+    expect(attackOf(preview,yuki)).toBe(4); expect(attackOf(preview,kappa)).toBe(4);
+    expect(preview.players[1].field).toContain(kappa);
+    const result=act(pending,command);
+    expect(result.players[0].field).toContain(yuki); expect(result.cards[yuki].souls).toBe(0);
+    expect(result.players[1].graveyard).toContain(kappa); expect(result.cards[kappa].souls).toBe(0);
+    expect(result.players.map(p=>p.health)).toEqual([15,15]); invariant(result);
+  });
   it('Tengu damages current controller before draw, including lethal', () => {
     const s=fixture(); put(s,'tengu',0,'field',0,1); s.players[1].health=1; const before=s.players[1].hand.length;
     const n=act(s,{type:'endTurn'}); expect(n.result?.winner).toBe(0); expect(n.players[1].hand).toHaveLength(before); expect(n.history.at(-1)).toContain('wins'); invariant(n);
@@ -261,4 +275,13 @@ describe('trap casting requirements at attack declaration', () => {
     expect(n.phase).toBe('trap'); expect(n.decisionPlayer).toBe(1);
     expect(canActivate(n,n.players[1].trap!,'trap')).toBe(true); invariant(n);
   });
+});
+
+it('can source every online setup draw independently of the local reproducible seed', () => {
+  let calls=0;
+  const first=createGame({seed:1},()=>{calls++;return .75;});
+  const second=createGame({seed:999},()=>.75);
+  expect(first).toEqual(second);
+  expect(calls).toBe(57);
+  expect(first.turnPlayer).toBe(1);
 });

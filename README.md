@@ -1,12 +1,36 @@
 # Yokai 1504
 
-A local two-player implementation of Yokai 1504. Both players use the same browser. All cards and images are bundled; the running game does not need external services.
+A two-player implementation of Yokai 1504 with invite-only online rooms and local testing. All cards and images are bundled; the running game does not need external services.
 
 ## Play online
 
-[Open Yokai 1504](https://vandamm.github.io/yokai1504/). Local testing uses one device with undo and optional open hands. Online multiplayer is planned. Matches stay in the browser you use, separately from local development saves.
+[Open the online game](https://yokai-1504-online.vandamm.workers.dev/). This branch adds a separate Cloudflare Worker with an authoritative, persistent game server. The main branch’s [GitHub Pages site](https://vandamm.github.io/yokai1504/) remains the local-testing version.
 
-## Deployment
+Create an online table, enter your name, and send the invitation link to the second player. Each browser keeps its own private seat. Only your hand and trap are revealed. Live updates poll every two seconds while visible; pending turns, traps and effects persist when both players leave. Reopen the room link in the same browser to resume. The table keeps your side at the bottom throughout.
+
+Treat the invitation as private: it grants the first guest the other seat. Once joined it cannot admit a different seat. Invitations are carried in URL fragments and removed after joining. Seat credentials stay in browser storage and Authorization headers; clearing browser data loses access. There are no accounts or seat-recovery emails yet.
+
+Online Undo is immediate for your own actions, including End turn, until the opponent takes an action. Their first accepted action closes your previous undo window permanently, even if they undo that action. Free actions and trap responses count; automatic draws, polling and rejected commands do not. Full replay export is available only after the game finishes, because it includes both hands and deck order. Exporting permanently finalizes the online game and disables Undo for both players, including after a refresh or interrupted download. The replay remains downloadable again. Local testing retains instant undo and optional open hands. Choosing a new table leaves online rooms saved and listed under Recent online tables.
+
+## Run the online server locally
+
+```sh
+npm ci
+npm run dev:online
+```
+
+Open the printed Worker URL (normally http://127.0.0.1:8787). To test two isolated local seats on one computer, use 127.0.0.1 for the host and localhost for the guest invitation; these have separate browser storage while reaching the same local server. The local Vite-only command still runs local testing, and reports online hosting unavailable if you attempt an online room there.
+
+```sh
+npm test
+npx tsc -p tsconfig.worker.json --noEmit
+npm run test:online:http # with the local Worker running; honors rate-limit Retry-After
+npm run deploy:online  # after wrangler login
+```
+
+Online deployment uses the separate `yokai-1504-online` Worker and one SQLite Durable Object per match. State mutations, revision checks and command receipts commit atomically. Online shuffles use cryptographic randomness for every draw, while local seeded setup remains reproducible. Responses contain only the authenticated seat’s projected view. Anonymous requests have per-IP rate limits. Create/join/move retries preserve their original credentials and command IDs.
+
+## Main branch deployment
 
 Every push to `main` runs `npm ci`, the full test suite and the production build, then deploys `dist/` with GitHub Actions to GitHub Pages. A failed test or build prevents deployment. You can also run **Deploy GitHub Pages** manually from the repository's Actions tab.
 
@@ -29,13 +53,13 @@ Open the HTTP URL, not `index.html` directly. Keep the terminal server running w
 
 Run `npm run dev:lan` on your computer. Connect the phone to the same trusted Wi-Fi and open the **Network** URL printed by Vite, such as `http://192.168.1.98:5173/`. Keep the computer awake and the server running. This exposes the local development game to your LAN; it does not publish an online game. Matches are saved separately in each browser and origin.
 
-The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto the same field or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drag onto their health. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
+The table keeps the rival’s hand above the facing yokai fields and your hand and actions at the bottom. Drag yokai onto your field, spells onto the same field or your **Trap** slot, and your field yokai onto an opposing yokai to attack. If their field is empty, drop onto their highlighted play area or health to attack directly. There are no click-to-play or click-to-attack controls. Use **+ soul** beside eligible yokai; select a release yokai to reveal its free Release control. Hand scroll arrows keep large hands reachable on touch screens.
 
 On desktop, hold **Shift** and hover a visible card for a large inspector, including cards in a graveyard. The sidebar shows the current turn above history grouped by round and player. Underlined card names show a reference tooltip on hover or keyboard focus, or open details when tapped. On phones, select a card and use **Inspect** beneath the current player’s health; **Menu → Public history** opens a side drawer.
 
-Pending effects show clear target choices above the table. Tap a marked card or an explicit choice to resolve Hamaya and other targeted effects. Sake uses + soul to stage allocations; Jufu selects up to two targets; **Resolve** confirms either spell. Ougi chooses donor then recipient, or drags your donor onto a recipient. Opposing cards remain selectable targets but cannot be picked up. Boseki revives a graveyard card by selection or drag.
+Pending effects show clear target choices above the table. Tap a marked card or an explicit choice to resolve Hamaya and other targeted effects. Sake uses + soul to stage allocations; Jufu selects up to two targets; **Resolve** confirms either spell. Ougi selects donor then recipient directly on the field. Opposing cards remain selectable targets but cannot be picked up. Boseki revives a graveyard card by selection or drag.
 
-Dragged cards disappear from the hand while held. Yokai stay on the board immediately after dropping, and added souls animate in place. Attacks, destruction and draws retain visible playback; **End turn** remains explicit. Actions, Undo, Inspect and End turn sit beneath the decision player’s health. Trap response instructions appear below the table. There are no selection arrows, empty-field frames or visible hand-count labels. Drag previews retain live attack and souls; casting highlights the whole own field. Pending effects save and resume after refresh.
+Dragged cards disappear from the hand while held. Yokai stay on the board immediately after dropping, and added souls animate in place. Attacks, destruction and draws retain visible playback; **End turn** remains explicit. Actions, Undo, Inspect and End turn sit beneath the decision player’s health. The acting player's hand and field are highlighted, including when the defender responds during the attacker's turn. The trap question below the table offers **Activate trap** and **Keep hidden**. Ougi's transferred souls and updated attack values appear before combat; animation cards retain those live values. There are no selection arrows, empty-field frames or visible hand-count labels. Drag previews retain live attack and souls; casting highlights the whole own field. Pending effects save and resume after refresh.
 
 ## Play
 
@@ -47,7 +71,7 @@ Undo restores the last accepted action and all of its consequences, including dr
 
 ## Export and replay for debugging
 
-Choose **Menu → Export replay** to download a versioned JSON file containing the initial position, reproducible active command sequence, final position and accepted-action audit, including undo branches and mode changes. The file includes both hands and deck order.
+Choose **Menu → Export replay & finalize** in a finished online game, or **Export replay** in local testing, to download a versioned JSON file containing the initial position, reproducible active command sequence, final position and accepted-action audit, including undo branches and mode changes. The file includes both hands and deck order.
 
 Choose **Import replay** from setup or the table menu. Load the JSON file or paste it, optionally choose an action number, then open it in a new session. The importer validates and re-executes every command before creating an independent save in a new tab. Undo can inspect earlier accepted positions without changing the original match. Older saves with automatic post-battle turns export with explicit End turn steps. Historic unusable-trap response pauses also remain reproducible.
 
@@ -57,7 +81,7 @@ Choose **Import replay** from setup or the table menu. Load the JSON file or pas
 - `src/session/` owns command IDs, monotonic match revisions, local saves, and undo checkpoints. Its asynchronous interface is the replacement point for an online service.
 - `src/ui/` renders views and submits commands. Normal player views exclude the opposing hand and unknown trap; the explicit local testing view reveals them.
 
-For online play, run the same rules on an authenticated authoritative server. Persist snapshots and command receipts atomically, return only the requesting player's view, and use revision checks and command IDs for stale clients/retries. Live subscriptions and correspondence polling can share that protocol. Persisted defender/effect decisions survive disconnection. Online play and negotiated online takebacks are not implemented in this release.
+Online play runs the same rules on an authenticated authoritative server. Snapshots and command receipts persist atomically; only the requesting player’s view is returned. Revision checks and command IDs handle stale clients and retries. Polling supports live and correspondence play, and pending defender/effect decisions survive disconnection. The server enforces each player’s Undo window without an approval step. Accounts, notifications, public matchmaking and chat are outside this first online version.
 
 ## Rules notes
 
@@ -85,7 +109,7 @@ npm run build
 
 The suite covers individual card effects, combat and reactions, hidden-information projections, deterministic complete-match simulations, storage failures, save validation, duplicate/stale submissions, and undo/resume.
 
-Verified 2026-10-29: **238 tests passed across twenty-one files**, TypeScript and production build passed. Browser checks covered turn changes without handoffs, undo across turn/trap/effect decisions, history tooltips, whole-side casting highlights and in-place soul allocation. Six played cards and controls fit at six phone/desktop viewports without document overflow. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
+Verified 2026-10-29: **274 tests passed across twenty-four files**, TypeScript and production build passed. Browser checks covered turn changes without handoffs, undo across turn/trap/effect decisions, history tooltips, whole-side casting highlights and in-place soul allocation. Six played cards and controls fit at six phone/desktop viewports without document overflow. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
 
 ## Credits
 

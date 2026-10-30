@@ -6,12 +6,12 @@ import { emptyDraft } from './interaction';
 import { createGame } from '../game/engine';
 import { viewForPlayer, viewForLocalTesting } from '../game/views';
 import { CARDS } from '../game/catalog';
-import type { GameView, VisibleCard } from '../game/types';
+import type { GameView, PlayerId, VisibleCard } from '../game/types';
 
 afterEach(() => vi.unstubAllEnvs());
 
-function markup(view: GameView, openHands = false) {
-  return renderToStaticMarkup(<Table view={view} openHands={openHands} targetIds={[]} chosenTargets={[]} allocations={{}} onSoul={() => {}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
+function markup(view: GameView, openHands = false, viewer?: PlayerId) {
+  return renderToStaticMarkup(<Table view={view} viewer={viewer} openHands={openHands} targetIds={[]} chosenTargets={[]} allocations={{}} onSoul={() => {}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
 }
 
 it('renders a private rival hand and trap without private identities or inspectable controls', () => {
@@ -37,6 +37,12 @@ it('seats the defender at the near edge during a trap response, independently of
   expect(html).toContain('Player 2’s hand, near edge');
   expect(html.indexOf('Player 1’s yokai')).toBeLessThan(html.indexOf('class="table-divider'));
   expect(html.indexOf('Player 2’s yokai')).toBeGreaterThan(html.indexOf('class="table-divider'));
+  const far = html.slice(html.indexOf('class="top-hand'), html.indexOf('class="battlefield'));
+  const near = html.slice(html.indexOf('class="bottom-hand'));
+  expect(far).not.toContain('side-active');
+  expect(near).toContain('side-active');
+  const defender = html.slice(html.indexOf('class="table-seat lower-seat'), html.indexOf('class="bottom-hand'));
+  expect(defender).toContain('side-active');
 });
 
 it('renders current combat values and exactly the card’s capacity using original soul art slots', () => {
@@ -79,4 +85,29 @@ it('places local turn controls below the near player health', () => {
   expect(near.indexOf('data-health-seat')).toBeLessThan(near.indexOf('Undo test'));
   expect(near.indexOf('Undo test')).toBeLessThan(near.indexOf('class="hand-window"'));
   expect(html.match(/Undo test/g)).toHaveLength(1);
+});
+
+it('keeps the online viewer near even when the opponent is deciding', () => {
+  const state = createGame({ seed: 45, startingPlayer: 0 });
+  const view = viewForPlayer(state, 1);
+  const html = renderToStaticMarkup(<Table view={view} viewer={1} openHands={false} targetIds={[]} chosenTargets={[]} allocations={{}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} />);
+  expect(html).toContain('Player 2’s hand, near edge');
+  expect(html).toContain('Player 1’s hand, far edge');
+  const near = html.slice(html.indexOf('class="bottom-hand'));
+  expect(near).toContain('class="table-card');
+  for (const id of state.players[0].hand) expect(html).not.toContain(id);
+});
+
+it('highlights the whole acting side and clears it when the game ends', () => {
+  const view = viewForPlayer(createGame({ seed: 45, startingPlayer: 0 }), 0);
+  view.turnPlayer = view.decisionPlayer = 1;
+  const html = markup(view, false, 0);
+  const far = html.slice(html.indexOf('class="top-hand'), html.indexOf('class="battlefield'));
+  expect(far).toContain('side-active');
+  expect(far).toContain('class="seat-turn"');
+  expect(html.match(/side-active/g)).toHaveLength(2);
+  expect(html.match(/class="seat-turn"/g)).toHaveLength(1);
+  view.result = { winner: 1, reason: 'Health depleted' };
+  expect(markup(view)).not.toContain('side-active');
+  expect(markup(view)).not.toContain('class="seat-turn"');
 });
