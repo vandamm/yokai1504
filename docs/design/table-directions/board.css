@@ -1,0 +1,109 @@
+@import '../minimal-table/style.css';
+@import './paper.css';
+@import './lacquer.css';
+@import './graphic.css';
+
+html,body,#root { height:100%; margin:0; overflow:hidden; }
+.device-shell { height:100dvh; }
+.game { --ink:#243b4a; --muted:#526875; --surface:#fbfcf8; --table:#f1f4ee; --line:#a8b7bd; --accent:#325f89; --enemy:#ad3d48; --focus:#236a9f; --shadow:0 4px 7px #233b3026; font-size:14px; color:var(--ink); }
+.game button { font:inherit; touch-action:manipulation; }
+.game button:focus-visible { outline:3px solid var(--focus); outline-offset:4px; }
+.game .atmosphere { animation:arrive .5s ease-out both; pointer-events:none; }
+.game.acting-opponent .atmosphere { inset:0 0 50%; }
+.game .table-card { display:block; position:relative; padding:0; border:0; min-width:0; min-height:0; width:98px; aspect-ratio:640/947; background:transparent; border-radius:5px; }
+.game .card-face { display:block; position:relative; width:100%; aspect-ratio:640/947; border-radius:5px; container-type:inline-size; }
+.game .card-face>img { display:block; width:100%; height:100%; object-fit:fill; border-radius:inherit; }
+.game .live-attack { position:absolute; left:2.5%; top:1.2%; width:22%; height:16%; display:flex; align-items:center; justify-content:center; background:var(--card-color); color:white; font-size:29cqw; font-weight:750; line-height:1; letter-spacing:-1px; }
+.game .live-attack.modified { color:#ffe289; text-shadow:0 1px 1px #46391350; }
+.game .soul-slots { position:absolute; right:2%; top:1.2%; width:39%; height:12.5%; display:flex; align-items:center; justify-content:flex-end; gap:2cqw; background:var(--card-color); }
+.game .soul-slot { width:10.5cqw; height:16cqw; flex:0 0 10.5cqw; background:url('/icons/soul.svg') center/contain no-repeat; opacity:.22; filter:grayscale(1); }
+.game .soul-slot.filled { opacity:1; filter:none; }
+.game .hand-objects .table-card { width:75px; }
+.game .back { padding:0; border:0; background:none; box-shadow:var(--shadow); }
+.game .back img { display:block; width:100%; height:100%; object-fit:cover; border-radius:4px; }
+.game .health-value { display:flex; align-items:center; justify-content:center; gap:5px; font-variant-numeric:tabular-nums; }
+.game .heart { display:inline-flex; align-items:center; }
+.game .heart svg { width:12px; height:14px; }
+.game .soul-image { width:12px; height:19px; object-fit:contain; filter:drop-shadow(0 0 .65px #385365); }
+.game .divider-supply { padding:0; background:none; }
+.game .supply { display:flex; align-items:center; justify-content:center; gap:6px; min-width:50px; min-height:44px; padding:5px 7px; }
+.game .supply strong { font-size:17px; font-variant-numeric:tabular-nums; }
+.game .turn-controls .undo { padding:0; border:0; }
+.game .turn-controls .end-turn { font-size:12px; }
+.game .menu { position:relative; display:flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; border:0; }
+.game .unread-count { position:absolute; right:3px; top:0; width:16px; height:16px; border-radius:50%; background:var(--accent); color:var(--surface); font-size:10px; }
+.game .seat-piles { height:44px; width:70px; display:flex; gap:6px; }
+.game .deck-pile { position:relative; display:block; width:20px; height:29px; }
+.game .grave-pile { position:relative; display:grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px; padding:0; border:0; background:transparent; }
+.game .pile-art { display:block; position:relative; width:20px; height:29px; border-radius:3px; }
+.game .pile-art img { display:block; width:100%; height:100%; border-radius:3px; object-fit:cover; }
+.game .pile-art.empty { border:1px dashed var(--line); }
+.game .pile-count { position:absolute; right:-6px; bottom:-3px; min-width:16px; height:16px; padding:1px 3px; border:1px solid var(--line); border-radius:4px; color:var(--ink); background:var(--surface); font-size:10px; line-height:12px; font-style:normal; font-variant-numeric:tabular-nums; }
+.game .pile-caption { display:none; pointer-events:none; }
+.game .seat-trap { display:grid; place-items:center; min-width:44px; min-height:44px; padding:0; border:0; background:transparent; }
+.game .trap-art { display:grid; place-items:center; width:26px; height:38px; border-radius:3px; }
+.game .trap-art img { display:block; width:100%; height:100%; border-radius:3px; object-fit:cover; }
+.game .trap-art.empty { border:1px dashed var(--line); }
+.game .empty-mark { font-size:23px; line-height:1; }
+.game .ghost-card .table-card { width:90px; }
+.game .target-path { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:8; }
+.game .target-path>path { fill:none; stroke:var(--accent); stroke-width:2.5; }
+.game .target-path marker path { fill:var(--accent); }
+.game .soul-add { display:flex; align-items:center; gap:3px; background:var(--surface); color:var(--accent); border-color:var(--line); }
+.game .soul-add .soul-image { width:10px; height:14px; }
+.game .drop-field { border-style:solid; border-width:2px; }
+.game .drop-field>span { background:var(--surface); color:var(--ink); border-radius:4px; }
+.game .drop-trap { border-style:solid; border-width:2px; align-items:flex-end; }
+.game .trap-question { position:absolute; right:12px; bottom:8px; width:204px; padding:10px; border:1px solid var(--line); z-index:10; }
+.game .trap-question>strong { display:block; font-size:13px; margin-bottom:8px; }
+.game .trap-question>div { display:flex; gap:6px; }
+.game .trap-question button { min-height:44px; min-width:44px; padding:7px 10px; font-size:12px; border:1px solid var(--line); border-radius:5px; }
+.game .effect-cue { color:var(--accent); }
+.game .inspection { position:fixed; width:min(620px,calc(100vw - 24px)); max-height:calc(100dvh - 28px); padding:28px; border:1px solid var(--line); overflow:auto; color:var(--ink); background:var(--surface); }
+.game .inspection::backdrop { background:#14223566; }
+.game .inspection .close { position:absolute; top:2px; right:2px; z-index:2; width:44px; height:44px; padding:0; display:grid; place-items:center; border:0; background:transparent; color:inherit; }
+.game .inspection-layout { display:grid; grid-template-columns:180px minmax(0,1fr); gap:26px; align-items:start; padding-top:8px; }
+.game .inspection-layout img { width:100%; display:block; border-radius:5px; }
+.game .inspection-copy .kind { display:block; font-size:12px; line-height:1.5; margin:0 0 12px; }
+.game .inspection-copy h2 { font-size:25px; line-height:1.2; letter-spacing:-.6px; margin:0 0 6px; padding-right:12px; }
+.game .inspection-copy .japanese { font-size:17px; color:var(--muted); margin:0 0 20px; }
+.game .inspection-copy .rule { font-size:16px; line-height:1.6; }
+.game .inspection-copy .rule-note { font-size:13px; color:var(--muted); line-height:1.5; }
+.game .hover-inspection { top:50%; left:50%; transform:translate(-50%,-50%); z-index:30; pointer-events:none; }
+.game .history-copy h2 { font-size:23px; margin-bottom:22px; }
+.game .history-copy h3 { margin:20px 0 8px; font-size:13px; color:var(--muted); }
+.game .history-copy p { font-size:15px; margin:8px 0; }
+.game .history-motion { margin-top:16px; background:var(--surface); color:var(--ink); }
+.game .hidden-trap-copy { text-align:center; }
+.game .hidden-trap-copy img { width:120px; margin-bottom:16px; }
+.game .comment-instruction { position:fixed; z-index:40; top:8px; left:50%; transform:translateX(-50%); background:#19496f; color:white; border-radius:24px; padding:9px 16px; font-size:13px; pointer-events:none; }
+.game .comment-pin { position:fixed; z-index:50; }
+.desktop .game .table-card { width:102px; }
+.desktop .game .hand-objects .table-card { width:70px; }
+.desktop .game .seat-piles { width:130px; height:86px; gap:14px; }
+.desktop .game .deck-pile,.desktop .game .grave-pile,.desktop .game .pile-art { width:58px; height:86px; }
+.desktop .game .seat-trap,.desktop .game .trap-art { width:64px; height:94px; }
+.desktop .game .empty-mark { font-size:34px; }
+.desktop .game .pile-caption { display:block; position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); font-size:10px; line-height:12px; white-space:nowrap; }
+.desktop .game .ghost-card .table-card { width:90px; }
+.desktop .game .trap-question { right:104px; bottom:20px; width:216px; }
+.desktop .game.state-trap .hand-objects { visibility:visible; }
+@media(max-width:800px) {
+ .game .inspection { padding:24px 16px 18px; }
+ .game .inspection-layout { grid-template-columns:110px minmax(0,1fr); gap:16px; }
+ .game .inspection-copy h2 { font-size:21px; overflow-wrap:anywhere; }
+ .game .inspection-copy .rule { font-size:14px; line-height:1.5; }
+ .game .inspection-copy .kind { font-size:11px; margin-bottom:9px; }
+ .game .inspection-copy .japanese { font-size:15px; margin-bottom:14px; }
+}
+@keyframes arrive { from{opacity:0}to{opacity:1} }
+@media(prefers-reduced-motion:reduce) { .game *,.game *::before,.game *::after { animation:none!important; transition:none!important; } }
+.game.reduced *,.game.reduced *::before,.game.reduced *::after { animation:none!important; transition:none!important; }
+
+.game .player-caption { font-size:11px; line-height:13px; }
+
+.game .drop-trap { right:12px; }
+.game .soul-add { left:auto; right:0; top:auto; bottom:calc(100% + 5px); transform:none; min-width:44px; min-height:44px; justify-content:center; }
+.game .action-pips i.used { background:transparent; border:1px solid var(--accent); opacity:.4; }
+.game .soul-evoked .soul-slot.filled:last-child { animation:soul-arrive .18s ease-out both; }
+@keyframes soul-arrive { from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)} }

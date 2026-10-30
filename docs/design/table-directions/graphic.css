@@ -1,0 +1,58 @@
+.game.theme-c {
+  --ink:#183057;
+  --muted:#465d80;
+  --surface:#f8faff;
+  --table:#e8edff;
+  --line:#6380b1;
+  --accent:#2948af;
+  --enemy:#bd344f;
+  --focus:#153f9b;
+  --shadow:3px 4px 0 #18305730;
+  --signal:#e4ef77;
+  color:var(--ink);
+  background:var(--table);
+  font-family:'Segoe UI',Arial,sans-serif;
+}
+.game.theme-c.acting-opponent { --accent:#bd344f; --signal:#ffd0da; }
+.game.theme-c .atmosphere {
+  background-color:#cfddff;
+  background-image:radial-gradient(#2948af22 .7px,transparent .9px);
+  background-size:8px 8px;
+  mask-image:linear-gradient(transparent,#000 42%);
+}
+.game.theme-c.acting-opponent .atmosphere {
+  background-color:#ffd9e0;
+  background-image:radial-gradient(#bd344f24 .7px,transparent .9px);
+  mask-image:linear-gradient(to top,transparent,#000 42%);
+}
+.game.theme-c .table-divider { background:var(--ink); box-shadow:0 1px 0 #fff; }
+.game.theme-c .health-value { color:var(--ink); font-family:'Arial Black','Segoe UI',sans-serif; font-weight:800; letter-spacing:-.06em; font-variant-numeric:tabular-nums; }
+.game.theme-c .heart { color:var(--enemy); }
+.game.theme-c .player-caption { color:var(--muted); font-weight:650; }
+.game.theme-c .action-pips i { background:var(--signal); border:1px solid var(--ink); border-radius:1px; box-shadow:1px 1px 0 var(--ink); }
+.game.theme-c .supply { background:var(--signal); color:var(--ink); border-color:var(--ink); border-radius:3px; box-shadow:2px 2px 0 var(--ink); font-weight:800; }
+.game.theme-c .turn-controls .undo { color:var(--ink); background:var(--table); border-radius:2px; }
+.game.theme-c .turn-controls .end-turn { color:#fff; background:var(--accent); border-color:var(--ink); border-radius:2px; box-shadow:3px 3px 0 var(--ink); font-weight:750; }
+.game.theme-c .turn-controls .end-turn:disabled { background:#d3ddec; color:#536780; border-color:#8195b2; box-shadow:none; }
+.game.theme-c .menu { color:var(--ink); background:var(--surface); border-color:var(--ink); border-radius:2px; }
+.game.theme-c .table-card { border-radius:2px; }
+.game.theme-c .card-face { border-radius:2px; box-shadow:var(--shadow); }
+.game.theme-c .table-card.target .card-face { box-shadow:0 4px 0 var(--accent),3px 7px 0 #18305730; }
+.game.theme-c .table-card.chosen .card-face { box-shadow:0 5px 0 -1px var(--accent),4px 7px 0 var(--ink); }
+.game.theme-c .table-card.dragging .card-face { box-shadow:7px 9px 0 #18305735,0 0 0 2px var(--surface); }
+.game.theme-c .pile-art img { border-radius:2px; box-shadow:2px 3px 0 #18305745; }
+.game.theme-c .pile-art.empty { background:#f8faff80; border-color:var(--line); border-radius:2px; }
+.game.theme-c .pile-caption { color:var(--muted); font-weight:650; }
+.game.theme-c .trap-art.empty { background:var(--surface); border-color:var(--ink); border-radius:2px; box-shadow:2px 3px 0 #18305724; }
+.game.theme-c .trap-art.empty .empty-mark { color:var(--ink); font-weight:800; }
+.game.theme-c .drop-field { color:var(--ink); border-color:var(--accent); background:repeating-linear-gradient(135deg,#d5e1ff80 0 8px,#e8edff40 8px 16px); }
+.game.theme-c .drop-trap { color:var(--ink); border-color:var(--ink); background:#e4ef77d9; }
+.game.theme-c .trap-question { color:var(--ink); background:var(--surface); border-color:var(--ink); border-radius:2px; box-shadow:4px 4px 0 #18305740; }
+.game.theme-c .trap-question .primary { color:#fff; background:var(--accent); border-color:var(--ink); border-radius:2px; font-weight:700; }
+.game.theme-c .trap-question .secondary { color:var(--ink); background:var(--signal); border-color:var(--ink); border-radius:2px; }
+.game.theme-c .effect-cue { color:var(--ink); background:var(--signal); border-color:var(--ink); border-radius:2px; font-weight:700; }
+.game.theme-c .inspection { color:var(--ink); background:var(--surface); border-color:var(--ink); border-radius:3px; box-shadow:7px 7px 0 #1830573d; }
+.game.theme-c .inspection-copy h2 { color:var(--ink); font-family:'Segoe UI',Arial,sans-serif; font-weight:800; letter-spacing:-.04em; }
+.game.theme-c .inspection-copy .kind { color:var(--muted); font-weight:650; }
+.game.theme-c .inspection-copy .rule { color:var(--ink); }
+.game.theme-c :focus-visible { outline-color:var(--focus); }

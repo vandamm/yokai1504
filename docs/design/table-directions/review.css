@@ -1,0 +1,12 @@
+@import '../game-review/review.css';
+main { max-width:1500px; }
+.swatch { flex-shrink:0; width:48px; height:48px; border-radius:7px; position:relative; overflow:hidden; }
+.swatch i { position:absolute; width:15px; height:24px; left:16px; top:11px; background:#b4c2d0; border:2px solid #f6f5ed; border-radius:2px; transform:rotate(-12deg); }
+.paper { background:repeating-radial-gradient(ellipse at 50% 100%,transparent 0 5px,#325f891f 6px,transparent 7px 12px),#f1f4ee; }
+.lacquer { background:radial-gradient(ellipse,#57404b,#241c2a); border:1px solid #a18b65; }
+.lacquer i { background:#af7691; box-shadow:2px 3px 5px #0f0d18; }
+.graphic { background:#e8edff; border-bottom:5px solid #2948af; }
+.graphic i { background:#6386cc; border-radius:0; box-shadow:3px 3px #2948af; }
+.review-controls select,#scene { max-width:255px; }
+.review-note { line-height:1.5; }
+@media(max-width:560px) { .swatch { width:36px; height:32px; }.swatch i { width:12px; height:19px; left:12px; top:5px; }.option small { display:none; } }
