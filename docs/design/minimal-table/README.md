@@ -1,6 +1,6 @@
 # Minimal tabletop UX wireframes
 
-The user narrowed the direction to as little UI as possible, with dragging/clicking like Hearthstone. The command dashboard and activity-first models are retired. These are three **layout alternatives of one shared card-first UX**, not three different interaction models or skins.
+The user narrowed the direction to as little UI as possible, with dragging/clicking like Hearthstone. The command dashboard and activity-first models are retired. The current review compares two refinements of one shared card-first UX: centered health and health beside a fan.
 
 They are static wireframes, before any interactive prototype. Only review controls, scrolling and comments work; game controls are drawn spans. Production code, game rules and deployments are untouched.
 
@@ -20,15 +20,13 @@ Open http://127.0.0.1:5177/docs/design/minimal-table/.
 - Hold inspects, movement begins a drag, a simple tap selects. Shift-hover inspects on desktop; focus/keyboard equivalents must exist. Hand expansion uses its own blank handle, not card hold. A future implementation must distinguish horizontal hand browsing from upward play and test this on phones.
 - Required trap response is a small persistent Activate / Keep hidden prompt near the trap/hand area. The hand recedes during this opponent-turn decision so the prompt can avoid the combatants. Ougi selects a donor yokai then a recipient yokai by tapping the existing field cards. The attack stays visibly paused until the effect finishes; no automatic turn ending.
 - Inspect card text on demand; history, rules and settings are in the compact menu. Returning goes directly to the live position with a small unread-history cue. Gameplay results belong to their objects (attack, soul slot, health, graveyard), followed by an enduring history entry.
-- Health, actual decision player and action budget remain visible. Utility glyphs may be small visually, but future touch areas must be at least 44px and have visible keyboard focus/accessibility labels. The wireframes do not certify accessibility or gesture usability.
+- Both hands are fans, with hidden card backs for the opponent. Health is mirrored; deck and graveyard sit left of it, trap right. Action pips extend horizontally right of health. End turn sits at the right end of the middle divider with a separate Undo icon beside it. During a trap/effect response, End turn is unavailable and the pending choice explains why. Health, actual decision player and action budget remain visible. Utility glyphs may be small visually, but future touch areas must be at least 44px and have visible keyboard focus/accessibility labels. The wireframes do not certify accessibility or gesture usability.
 
 ## Layout choices
 
-**A Straight hand:** separated cards at the near edge, visible hand, Undo and End turn below. Most discoverable, at the cost of hand space.
+**A Centered health:** the health value is centered between hand and field for both players; unequal pile/trap widths do not move it. Both fans stay centered at the edges. Pips extend right without consuming an additional row. This is the more balanced phone composition.
 
-**B Fan hand:** overlapping fan with a separate expansion handle, larger field cards, own health above the hand, utilities flanking it. The main risk is browsing/inspection/drag ambiguity; it needs a touch prototype before choosing it.
-
-**C Thumb shelf:** raised straight hand, own health and utilities grouped along the lower edge, menu within thumb reach. The tradeoff is more density near the lower edge.
+**B Health beside fan:** health, piles and trap form a side group to the left of each fan. Phone fans are narrower to keep this group clear. The field retains the same full width, and End turn / Undo use the same divider position as A. Desktop has room for a wider fan and looser side group. The tradeoff is denser seat objects on phones.
 
 Phone frames are 360 × 720 and desktop frames 1120 × 660. Seven moments show rest, lifted spell, attack, soul addition, trap response, Ougi targeting and asynchronous return. Notes and gesture descriptions are outside the drawn game UI.
 
@@ -36,4 +34,4 @@ Comments have their own validated local endpoint and git-ignored feedback file. 
 
 Reference: Blizzard describes placing minions from hand onto the board and changing positions by dragging in its [Battlegrounds introduction](https://hearthstone.blizzard.com/en-us/news/23156373/introducing-hearthstone-battlegrounds). This study adopts object manipulation as the design principle; it does not import Battlegrounds rules or claim to reproduce Hearthstone's complete UI.
 
-Verification: JavaScript syntax/whitespace checks, browser layout measurements for all seven moments on phone and desktop, and trap-prompt/card overlap checks. Own health was checked against field cards and piles; an overlap in the straight-hand layout and crowding in the fan layout were corrected. A QA comment was saved, pinned and removed. Wireframe controls were visually reviewed; actual dragging, animations, touch gestures and screen-reader behavior remain unimplemented.
+Verification: JavaScript syntax/whitespace checks, browser layout measurements for both placements across all seven moments on phone and desktop, with health/card and trap-prompt overlap checks. Mirrored seat order, horizontal action pips and divider control placement were measured. The local comment mechanism was previously verified with a saved, pinned and removed QA note; no user feedback was overwritten. Wireframe controls were visually reviewed; actual dragging, animations, touch gestures and screen-reader behavior remain unimplemented.
