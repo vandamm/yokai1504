@@ -14,7 +14,7 @@ type Scene = 'main' | 'trap' | 'ougi' | 'notice' | 'connection';
 type Option = 'a' | 'b' | 'c';
 interface Comment { id: string; option: Option; actor: string; scene: Scene; target: string; region: string; x: number; y: number; }
 interface Preview { option: Option; actor: 'mine' | 'opponent'; scene: Scene; tooltip: boolean; commentMode: boolean; comments: Comment[]; replay: number; selectedComment?: string; }
-const initial: Preview = { option: 'a', actor: 'mine', scene: 'main', tooltip: false, commentMode: false, comments: [], replay: 0 };
+const initial: Preview = { option: 'c', actor: 'mine', scene: 'main', tooltip: false, commentMode: false, comments: [], replay: 0 };
 const send = (message: object) => parent.postMessage(message, location.origin);
 const game = createGame({ seed: 42, names: ['Alex', 'Poli'], startingPlayer: 0 });
 game.turn = 3;

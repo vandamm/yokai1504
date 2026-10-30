@@ -1,7 +1,7 @@
 const $ = selector => document.querySelector(selector);
 const board = $('#board'), panel = $('#comments-panel'), composer = $('#composer');
 const options = { a: 'Spotlight', b: 'Spirit mist', c: 'Ink tide' };
-const state = { option: 'a', actor: 'mine', scene: 'main', device: innerWidth < 700 ? 'phone' : 'desktop', tooltip: false, commentMode: false, replay: 0 };
+const state = { option: 'c', actor: 'mine', scene: 'main', device: innerWidth < 700 ? 'phone' : 'desktop', tooltip: false, commentMode: false, replay: 0 };
 let feedback = { preference: null, comments: [] }, pending, selectedComment;
 const api = '/api/design-review';
 function status(message, error = false) { $('#save-status').textContent = message; $('#save-status').classList.toggle('error', error); }
