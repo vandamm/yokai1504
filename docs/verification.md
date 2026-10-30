@@ -1,3 +1,11 @@
+# Reconnection recovery — 2026-10-30
+
+- Kept temporary polling failures separate from action errors. A successful poll clears a connection warning even when the room revision has not changed; rejected action explanations remain available.
+- Actual browser check: opened the saved guest seat, stopped the local Worker, observed the connection alert, restarted the Worker, and waited for the alert to disappear without reload or dismissal. The same private hand and enabled End turn control remained available.
+- 265 tests, frontend and Worker TypeScript checks, production build and whitespace checks pass.
+
+---
+
 # Online play — 2026-10-29
 
 - Branch codex/online-play adds a separate Cloudflare Worker and SQLite Durable Object per match. Main’s Pages deployment is untouched.

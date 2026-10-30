@@ -130,6 +130,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [menu, setMenu] = useState(false);
@@ -160,6 +161,7 @@ export function App() {
   }, []);
   const resetTableUI = () => { setDraft(emptyDraft()); setInspectionId(undefined); setDetailsOpen(false); setReference(null); setGraveyard(null); setMenu(false); setHistory(false); setRules(false); setNotice(null); setHovered(undefined); };
   const adopt = (next: SessionSnapshot) => {
+    setConnectionError(null);
     resetTableUI();
     snapshotRef.current = next;
     setSnapshot(next);
@@ -206,10 +208,11 @@ export function App() {
       polling = true;
       try {
         const next = await online.getSnapshot(), current = snapshotRef.current;
+        if (live) setConnectionError(null);
         if (live && !busyRef.current && current && current.matchId === next.matchId && next.revision > current.revision) {
           busyRef.current = true; setBusy(true); present(current, next);
         }
-      } catch (reason) { if (live) setError(errorMessage(reason)); }
+      } catch (reason) { if (live) setConnectionError(errorMessage(reason)); }
       finally { polling = false; }
     };
     const timer = window.setInterval(() => void poll(), 2000);
@@ -287,7 +290,7 @@ export function App() {
   const hoveredCard = cards.find(card => card.id === hovered?.id);
   const hoveredDefinition = hovered?.def ? CARDS[hovered.def] : hoveredCard?.definition;
   const historyEntries = playback?.next.view.history ?? view?.history ?? [];
-  const errorBanner = error && <div className="error-banner" role="alert"><p>{error}</p><button type="button" className="icon-button" aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>;
+  const errorBanner = (error || connectionError) && <div className="error-banner" role="alert"><p>{error || connectionError}</p><button type="button" className="icon-button" aria-label="Dismiss error" onClick={() => { setError(null); setConnectionError(null); }}>×</button></div>;
   return <div className={`app-shell ${view ? 'in-match' : ''}`} onPointerLeave={() => setHovered(undefined)} onFocus={event => {
     const el = (event.target as Element).closest<HTMLElement>('[data-card-def]');
     if (el) { const rect = el.getBoundingClientRect(); setHovered({ def: el.dataset.cardDef as CardDefId, left: rect.left, right: rect.right, top: rect.top }); }

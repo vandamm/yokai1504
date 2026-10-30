@@ -81,7 +81,7 @@ Choose **Import replay** from setup or the table menu. Load the JSON file or pas
 - `src/session/` owns command IDs, monotonic match revisions, local saves, and undo checkpoints. Its asynchronous interface is the replacement point for an online service.
 - `src/ui/` renders views and submits commands. Normal player views exclude the opposing hand and unknown trap; the explicit local testing view reveals them.
 
-For online play, run the same rules on an authenticated authoritative server. Persist snapshots and command receipts atomically, return only the requesting player's view, and use revision checks and command IDs for stale clients/retries. Live subscriptions and correspondence polling can share that protocol. Persisted defender/effect decisions survive disconnection. This branch implements this protocol with polling and negotiated takebacks. Accounts, notifications, public matchmaking and chat are outside this first online version.
+Online play runs the same rules on an authenticated authoritative server. Snapshots and command receipts persist atomically; only the requesting player’s view is returned. Revision checks and command IDs handle stale clients and retries. Polling supports live and correspondence play, and pending defender/effect decisions survive disconnection. Takebacks require both players’ consent. Accounts, notifications, public matchmaking and chat are outside this first online version.
 
 ## Rules notes
 
@@ -109,7 +109,7 @@ npm run build
 
 The suite covers individual card effects, combat and reactions, hidden-information projections, deterministic complete-match simulations, storage failures, save validation, duplicate/stale submissions, and undo/resume.
 
-Verified 2026-10-29: **238 tests passed across twenty-one files**, TypeScript and production build passed. Browser checks covered turn changes without handoffs, undo across turn/trap/effect decisions, history tooltips, whole-side casting highlights and in-place soul allocation. Six played cards and controls fit at six phone/desktop viewports without document overflow. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
+Verified 2026-10-29: **265 tests passed across twenty-four files**, TypeScript and production build passed. Browser checks covered turn changes without handoffs, undo across turn/trap/effect decisions, history tooltips, whole-side casting highlights and in-place soul allocation. Six played cards and controls fit at six phone/desktop viewports without document overflow. Physical iPhone/Android touch testing remains unverified. See the [verification record](docs/verification.md).
 
 ## Credits
 
