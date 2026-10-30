@@ -4,7 +4,7 @@ import { viewForPlayer } from '../game/views';
 import type { OnlineSnapshot } from '../online/protocol';
 import { OnlineSession, inviteLink, roomLocation } from './online';
 
-const snapshot = (revision = 0): OnlineSnapshot => ({ matchId: 'room-a', revision, viewer: 0, waitingForOpponent: false, undoRequestedBy: null, view: viewForPlayer(createGame({ seed: 42 }), 0), openHands: false, canUndo: revision > 0, recentHistory: [] });
+const snapshot = (revision = 0): OnlineSnapshot => ({ matchId: 'room-a', revision, viewer: 0, finalized: false, waitingForOpponent: false, undoRequestedBy: null, view: viewForPlayer(createGame({ seed: 42 }), 0), openHands: false, canUndo: revision > 0, recentHistory: [] });
 const memory = () => { const values = new Map<string, string>(); return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } }; };
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 
@@ -95,4 +95,12 @@ it.each(['create', 'join'] as const)('preserves a response-lost %s credential wh
   fetcher.mockResolvedValueOnce(response({ ...payload, snapshot: { ...snapshot(), matchId: kind === 'create' ? payload.matchId : 'room-a' } }));
   await run();
   expect(JSON.parse(fetcher.mock.calls[2][1].body)).toEqual(payload);
+});
+
+it('requests replay export as an authenticated state-changing operation', async () => {
+  const file={format:'yokai1504-replay',version:1,actions:[]};
+  const fetcher=vi.fn().mockResolvedValueOnce(response({token:'private-seat',snapshot:snapshot()})).mockResolvedValueOnce(response(file));
+  const session=new OnlineSession(memory(),fetcher); await session.join('room-a','invite','Guest');
+  expect(JSON.parse(await session.exportReplay())).toEqual(file);
+  expect(fetcher).toHaveBeenLastCalledWith('/api/matches/room-a/replay',expect.objectContaining({method:'POST',body:'{}',headers:expect.objectContaining({Authorization:'Bearer private-seat'})}));
 });

@@ -30,7 +30,7 @@ try {
     }
   };
   privacy(views);
-  await request(`${room}/replay`, tokens[0], undefined, 409);
+  await request(`${room}/replay`, tokens[0], {}, 409);
   const initial = views[0].view;
   const actor = initial.decisionPlayer;
   const action = { commandId: crypto.randomUUID(), expectedRevision: views[actor].revision, command: { type: 'endTurn' } };
@@ -91,10 +91,15 @@ try {
     views = await Promise.all([read(0),read(1)]); privacy(views);
   }
   assert(views[0].view.result,'match failed to finish');
-  const file = await request(`${room}/replay`,tokens[0]);
+  const beforeExport=views[0].revision, file = await request(`${room}/replay`,tokens[0],{});
+  views=await Promise.all([read(0),read(1)]);
+  for(const view of views) { assert.equal(view.finalized,true); assert.equal(view.canUndo,false); assert.equal(view.revision,beforeExport+1); }
+  await request(`${room}/commands`,tokens[0],{commandId:crypto.randomUUID(),expectedRevision:views[0].revision,command:{type:'undo'}},409);
+  assert.deepEqual(await request(`${room}/replay`,tokens[1],{}),file);
+  assert.equal((await read(1)).revision,views[1].revision,'repeat export must not finalize twice');
   const { LocalSession } = await vite.ssrLoadModule('/src/session/local.ts');
   let saved;
   const imported = await new LocalSession({getItem:()=>saved??null,setItem:(_key,value)=>{saved=value;}},()=>crypto.randomUUID()).importReplay(JSON.stringify(file));
   assert.deepEqual(imported.view.result,views[0].view.result);
-  console.log(`Online HTTP smoke passed: two private seats, one-use invite, retry/stale checks, immediate turn-window undo, ${steps} actions to victory, validated replay.`);
+  console.log(`Online HTTP smoke passed: two private seats, one-use invite, retry/stale checks, immediate turn-window undo, ${steps} actions to victory, finalized replay and blocked Undo.`);
 } finally { await vite.close(); }

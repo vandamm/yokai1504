@@ -1,3 +1,14 @@
+# Replay export finalization — 2026-10-30
+
+- Exporting a finished online game atomically sets a persistent finalized flag and increases the room revision before releasing either deck. Both seats receive canUndo=false, and the server rejects fresh Undo and legacy requestUndo commands after export. Repeated exports return the same replay without another revision change.
+- Current clients use POST for the state-changing export. GET remains compatible with older open clients and applies the same lock. Nonparticipants and unfinished games cannot finalize a room. The replay format and local testing exports remain unchanged.
+- UI labels the action Export replay & finalize, explains the Undo cutoff, refreshes the exporting seat immediately, and shows the finalized status. The opponent receives the updated room revision through polling.
+- Regression tests cover undoing an unexported winning move, authorization, persistence/reload, both seats, repeat downloads and the export-versus-Undo race. The existing game state, history and replay contents remain intact.
+- A complete two-seat HTTP game reached victory after 46 actions. POST export finalized both seats, fresh Undo was rejected, repeated export left the revision unchanged, and the exported replay imported successfully.
+- 274 tests across 24 files, frontend/Worker TypeScript checks, production build and whitespace checks pass.
+
+---
+
 # Immediate online Undo — 2026-10-30
 
 - Removed online approval prompts. Undo reverses only the authenticated player’s own uninterrupted action window, including End turn and its automatic draw. The opponent’s first accepted action closes the previous window; undoing that first action does not reopen it.

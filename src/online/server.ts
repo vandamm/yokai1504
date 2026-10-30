@@ -17,6 +17,7 @@ export interface Room {
   audit: ((ReplayAction & { kind: 'command' }) | { kind: 'undo' })[];
   receipts: { actor: PlayerId; commandId: string; payload: string }[];
   undoRequestedBy: PlayerId | null; // Legacy rooms may still contain a pending approval.
+  finalized?: boolean;
   undoWindow?: { player: PlayerId; floor: number } | null;
 }
 export type RoomRequest =
@@ -83,10 +84,10 @@ function undoBoundary(room: Room): Room['undoWindow'] {
 }
 function canUndo(room: Room, actor: PlayerId): boolean {
   const window = undoBoundary(room);
-  return !!window && window.player === actor && room.actions.length > window.floor;
+  return !room.finalized && !!window && window.player === actor && room.actions.length > window.floor;
 }
 function snapshot(room: Room, viewer: PlayerId): OnlineSnapshot {
-  return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), viewer,
+  return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), viewer, finalized: !!room.finalized,
     openHands: false, canUndo: canUndo(room, viewer), waitingForOpponent: room.tokenHashes[1] === null,
     undoRequestedBy: room.undoRequestedBy, recentHistory: room.state.history.slice(room.checkpoints.at(-1)?.historyLength ?? 0) };
 }
@@ -123,6 +124,7 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
   if (request.type === 'snapshot') return { room: current, value: snapshot(current, actor) };
   if (request.type === 'replay') {
     check(current.state.phase === 'finished', 'The replay is available after the match has finished.', 409);
+    if (!current.finalized) current = { ...current, finalized: true, revision: current.revision + 1 };
     return { room: current, value: { format: 'yokai1504-replay', version: 1, initial: current.initial, final: current.state,
       actions: current.actions, openHands: false, audit: current.audit } };
   }
@@ -141,6 +143,7 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
   switch (command.type) {
     case 'undo':
     case 'requestUndo': {
+      check(!current.finalized, 'Replay export has finalized this game. Undo is permanently closed.', 409);
       check(canUndo(current, actor), 'Undo is unavailable after the opponent acts or before your own first action.', 409);
       const { historyLength, ...position } = current.checkpoints.at(-1)!;
       room = { ...room, state: { ...position, history: current.state.history.slice(0, historyLength) },

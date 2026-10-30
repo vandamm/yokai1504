@@ -151,6 +151,6 @@ export class OnlineSession {
 
   async exportReplay(): Promise<string> {
     if (!this.room || !this.seat) throw new Error('Join an online room first.');
-    return JSON.stringify(await this.request(`/${encodeURIComponent(this.room)}/replay`, undefined, this.seat.token), null, 2);
+    return JSON.stringify(await this.request(`/${encodeURIComponent(this.room)}/replay`, {}, this.seat.token), null, 2);
   }
 }

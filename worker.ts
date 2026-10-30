@@ -88,7 +88,11 @@ async function api(request: Request, env: Env): Promise<Reply> {
     return roomRequest(env, matchId, { type: 'command', tokenHash: credential, action });
   }
   if (!operation && request.method === 'GET') return roomRequest(env, matchId, { type: 'snapshot', tokenHash: credential });
-  if (operation === 'replay' && request.method === 'GET') return roomRequest(env, matchId, { type: 'replay', tokenHash: credential });
+  if (operation === 'replay' && (request.method === 'POST' || request.method === 'GET')) {
+    if (request.method === 'POST') fields(await body(request), []);
+    // Keep GET for older clients; every export finalizes before revealing either deck.
+    return roomRequest(env, matchId, { type: 'replay', tokenHash: credential });
+  }
   return { status: 405, body: { error: 'Method not allowed.' } };
 }
 export default {

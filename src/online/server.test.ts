@@ -202,3 +202,42 @@ it('strictly bounds and validates every untrusted action and name', () => {
   expect(() => validateAction(action)).not.toThrow();
   for (const bad of [null, { ...action, actor: 0 }, { ...action, expectedRevision: -1 }, { ...action, commandId: 'x'.repeat(129) }, { ...action, command: { type: 'endTurn', actor: 1 } }, { ...action, command: { type: 'choose', targets: Array(31).fill('id') } }, { ...action, command: { type: 'choose', allocations: [{ cardId: 'id', count: 12 }] } }]) expect(() => validateAction(bad)).toThrow();
 });
+
+function finish(game: ReturnType<typeof setup>) {
+  for (let i=0; !game.room.state.result && i<100; i++) game.command(game.room.state.decisionPlayer === 0 ? host : guest,'endTurn');
+  expect(game.room.state.phase).toBe('finished');
+}
+it('finalizes an authenticated finished-game export once and permanently closes both Undo windows', () => {
+  const game=setup(); game.join(); const before=JSON.stringify(game.room);
+  expect(() => game.send({type:'replay',tokenHash:host})).toThrow(/finished/);
+  expect(JSON.stringify(game.room)).toBe(before);
+  finish(game); const owner=game.room.actions.at(-1)!.actor, token=owner===0?host:guest;
+  expect(canUndo(game,owner)).toBe(true);
+  game.command(token,'undo'); expect(game.room.state.result).toBeNull(); finish(game);
+  const revision=game.room.revision, terminal=structuredClone(game.room.state);
+  const unauthorized=JSON.stringify(game.room);
+  expect(() => game.send({type:'replay',tokenHash:'wrong'})).toThrow(/authorized/);
+  expect(JSON.stringify(game.room)).toBe(unauthorized);
+  const file=game.send({type:'replay',tokenHash:owner===0?guest:host});
+  expect(game.room.finalized).toBe(true); expect(game.room.revision).toBe(revision+1);
+  expect(game.room.state).toEqual(terminal);
+  for(const seat of [0,1] as const) expect(canUndo(game,seat)).toBe(false);
+  expect(() => game.command(token,'undo')).toThrow(/finalized/i);
+  expect(() => game.command(token,'requestUndo')).toThrow(/finalized/i);
+  const persisted=JSON.parse(JSON.stringify(game.room));
+  const repeated=reduceRoom(persisted,{type:'replay',tokenHash:host});
+  expect(repeated.room).toBe(persisted); expect(repeated.value).toEqual(file);
+  expect((reduceRoom(persisted,{type:'snapshot',tokenHash:guest}).value as any).finalized).toBe(true);
+});
+it('serializes export versus final-action Undo so an undone result never exposes a replay', () => {
+  const game=setup(); game.join(); finish(game);
+  const token=game.room.actions.at(-1)!.actor===0?host:guest;
+  const undo:RoomRequest={type:'command',tokenHash:token,action:{commandId:'race-undo',expectedRevision:game.room.revision,command:{type:'undo'}}};
+  const finished=JSON.parse(JSON.stringify(game.room));
+  const exported=reduceRoom(finished,{type:'replay',tokenHash:host}).room;
+  expect(() => reduceRoom(exported,undo)).toThrow(/revision/);
+  const undone=reduceRoom(finished,undo).room;
+  expect(undone.state.result).toBeNull();
+  expect(() => reduceRoom(undone,{type:'replay',tokenHash:guest})).toThrow(/finished/);
+  expect(undone.finalized).not.toBe(true);
+});

@@ -2,6 +2,7 @@ import type { GameCommand, PlayerId } from '../game/types';
 import type { SessionSnapshot } from '../session/local';
 export interface OnlineSnapshot extends SessionSnapshot {
   viewer: PlayerId;
+  finalized: boolean;
   waitingForOpponent: boolean;
   undoRequestedBy: PlayerId | null;
 }
