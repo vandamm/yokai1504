@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s);
 const state={device:'phone',scene:'main',commenting:false};
 let comments=[],pending;
-const names={a:'Centered health',b:'Health beside fan'};
+const names={a:'Centered table · full field'};
 const moments={main:'At rest',play:'Drag a spell',attack:'Attack',soul:'Souls',trap:'Trap response',effect:'Ougi targets',return:'Return later'};
 const button=(text,extra='')=>`<span class="wbutton ${extra}">${text}</span>`;
 const region=(id,title,html,cls='')=>`<div class="${cls}" data-region="${id}" data-label="${title}">${html}</div>`;
@@ -24,9 +24,9 @@ function life(near=false){
 }
 function seatStatus(near=false){
  const response=['trap','effect'].includes(state.scene),owner=near?'Your':'Opponent';
- const piles=region(near?'your-piles':'enemy-piles',`${owner} deck and graveyard, left of health`,'<i class="pile-object"></i><i class="pile-object empty"></i>','seat-piles');
- const trap=region(near?'trap':'enemy-trap',`${owner} trap, right of health`,`<i class="pile-object trap-card">${near?(response?'Ougi':'×'):'?'}</i>`,'seat-trap');
- return region(near?'your-seat':'opponent-seat',`${owner} seat: deck, graveyard, health, trap`,`${piles}${life(near)}${trap}`,`seat-status ${near?'seat-near':'seat-far'}`);
+ const piles=region(near?'your-piles':'enemy-piles',`${owner} deck and graveyard at the left screen edge`,'<i class="pile-object"></i><i class="pile-object empty"></i>','seat-piles');
+ const trap=region(near?'trap':'enemy-trap',`${owner} trap at the right screen edge`,`<i class="pile-object trap-card">${near?(response?'Ougi':'×'):'?'}</i>`,'seat-trap');
+ return region(near?'your-seat':'opponent-seat',`${owner} seat: edge piles, centered health, edge trap`,`${piles}${life(near)}${trap}`,`seat-status ${near?'seat-near':'seat-far'}`);
 }
 function menu(){return `<span class="menu-symbol">☰${state.scene==='return'?'<i class="new-count">2</i>':''}</span>`;}
 function hand(){
@@ -36,35 +36,36 @@ function hand(){
 function path(model){
  const wide=state.device==='desktop',w=wide?1120:360,h=wide?660:720;
  let d;
- if(state.scene==='attack')d=wide?'M500 267 Q496 254 492 238':'M128 335 Q125 300 126 263';
- if(state.scene==='trap')d=wide?'M628 314 L628 340':'M234 329 L234 385';
- if(state.scene==='effect')d=wide?'M526 338 Q537 287 492 238':'M156 397 Q180 310 126 263';
+ if(state.scene==='attack')d=wide?'M424 300 Q420 267 424 238':'M123 335 Q90 300 68 263';
+ if(state.scene==='trap')d=wide?'M560 314 L560 340':'M180 329 L180 385';
+ if(state.scene==='effect')d=wide?'M456 355 Q470 300 424 238':'M98 401 Q125 355 68 263';
  if(!d)return '';
- const x=state.scene==='trap'?(wide?628:234):(wide?492:126),y=state.scene==='trap'?(wide?342:387):(wide?236:261);
+ const x=state.scene==='trap'?(wide?560:180):(wide?424:68),y=state.scene==='trap'?(wide?342:387):(wide?236:261);
  const tip=state.scene==='trap'?`${x-5},${y-9} ${x},${y} ${x+5},${y-9}`:`${x-5},${y+9} ${x},${y} ${x+5},${y+9}`;
  return `<svg class="drag-path" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}"/><polygon points="${tip}"/></svg>`;
 }
 function board(model){
  const response=['trap','effect'].includes(state.scene);
- const far=`<div class="edge-far">${backs}<div class="corner-tools">${region('menu','Compact menu: rules, history and settings',menu())}<span class="supply-object">10<i></i></span></div></div>`;
- const enemy=region('enemy-field','Enemy cards: drag or click to target',`${unit('kappa','Kappa','2 ATK')}${unit('tengu','Tengu','4 ATK')}`,'zone enemy');
- const yours=region('your-field','Your field: also the shared play destination for yokai and spells',`${unit('yuki','Yuki-onna','4 ATK · 1 soul')}${unit('neko','Nekomata','3 ATK')}`,'zone yours');
+ const far=`<div class="edge-far">${backs}<div class="corner-tools">${region('menu','Compact menu: rules, history and settings',menu())}</div></div>`;
+ const enemy=region('enemy-field','Enemy cards: drag or click to target',`${unit('kappa','Kappa','2 ATK')}${unit('tengu','Tengu','4 ATK')}${unit('rokuro','Rokurokubi','3 ATK')}`,'zone enemy');
+ const yours=region('your-field','Your field: also the shared play destination for yokai and spells',`${unit('yuki','Yuki-onna','4 ATK · 1 soul')}${unit('neko','Nekomata','3 ATK')}${unit('zashiki','Zashiki-warashi','2 ATK')}`,'zone yours');
+ const supply=region('supply','Supply: 10 souls at the left end of the divider','<span class="supply-object">10<i></i></span>','divider-supply');
  const utilities=region('undo','End turn on the divider; separate Undo hit area beside it',`${!response?'<span class="undo-icon">↶</span>':''}${button('End turn',response?'disabled':'')}`,'divider-utilities');
  const drops=state.scene==='play'?region('play-destination','Appears only while dragging: drop onto your whole field to play','<span>Play</span>','drop-field')+region('trap-destination','Drop the same spell here to set it','Set trap','drop-trap'):'';
  const dragged=state.scene==='play'||state.scene==='attack'?region('action-area','The lifted card replaces its original; no duplicate remains',card(state.scene==='play'?'Sake':'Yuki-onna',state.scene==='play'?'Spell':'4 ATK · 1 soul')+'<i class="finger"></i>','ghost-card'):'';
  const choice=state.scene==='trap'?region('action-area','Only required decision UI; stays until answered',`<strong>Use Ougi?</strong><div class="button-row">${button('Activate','primary')}${button('Keep hidden')}</div>`,'floating-choice'):'';
  const cue=state.scene==='effect'?region('action-area','Ougi: tap a donor yokai and then a recipient on the existing field','Donor → recipient','effect-cue'):'';
- return region('table','Board-first layout; no command menu or permanent history',`<div class="active-side"></div>${far}${enemy}<div class="middle-rule"></div>${yours}${seatStatus(false)}${seatStatus(true)}${hand()}${utilities}${drops}${dragged}${path(model)}${choice}${cue}`,`minimal-screen layout-${model} state-${state.scene}`);
+ return region('table','Board-first layout; no command menu or permanent history',`<div class="active-side"></div>${far}${enemy}<div class="middle-rule"></div>${yours}${seatStatus(false)}${seatStatus(true)}${hand()}${supply}${utilities}${drops}${dragged}${path(model)}${choice}${cue}`,`minimal-screen layout-${model} state-${state.scene}`);
 }
-const a=()=>board('a'),b=()=>board('b');
-const descriptions={a:'Health sits between hand and field for both players. Deck and graveyard left, trap right; action pips beside health.',b:'Health sits to the left of each fan. The same deck → health → trap order remains, with a more compact hand on phones.'};
+const a=()=>board('a');
+const descriptions={a:'Three yokai on each side. Health stays centered; piles and traps move to the screen edges. Supply and turn controls share the divider.'};
 const commonFlows={main:'Select an object → legal destinations appear → drag/drop or click the destination',play:'Spell → your field to play / trap position to set → effect targets on the same field',attack:'Yokai → enemy card or exposed player health → resolve → update values in place',soul:'Select an eligible yokai → small + soul appears beside it → soul fills its slot',trap:'Attack pauses → Activate / Keep hidden beside the trap → resume only after the decision',effect:'Tap the donor yokai → tap the recipient yokai → visible transfer → resume battle',return:'Live table immediately → small unread-history cue → recent events only if opened'};
-const flows={a:commonFlows,b:commonFlows};
+const flows={a:commonFlows};
 const commonNotes={play:'Destinations exist only during selection or drag. No Play / Set action sheet, separate spell area or second placement animation.',attack:'No Attack button or confirmation screen. Selecting a target commits. Undo is separate; releasing over empty space or tapping away cancels.',soul:'This control belongs to the selected card, not a command bar. A filled soul is the source for a release ability when one is available.',trap:'This is one of the few moments that needs explicit buttons. No timer, full-screen takeover, or auto-ended turn.',effect:'The field stays visible. Donor and recipient are yokai on the table; there are no separate card lists or step screens.',return:'No welcome screen, forced recap or permanent journal. Changed state is already on the live table; history is available from the menu.'};
-const annotations={a:{...commonNotes,main:'The health value itself is centered; action pips extend right without moving it. Both hands are fans. End turn and Undo stay on the divider.'},b:{...commonNotes,main:'Keeps health beside the fan. On a phone this needs a narrower fan and a denser seat row; field cards retain the full width.'}};
+const annotations={a:{...commonNotes,main:'The field is shown at its full capacity: three cards per player. Supply is on the left end of the divider; End turn and Undo on the right. The health values and fans remain mirrored.'}};
 function render(){
  $('#wireframes').className=`wireframes ${state.device} ${state.commenting?'commenting':''}`;
- $('#wireframes').innerHTML=['a','b'].map(option=>`<article class="concept" data-option="${option}"><div class="concept-heading"><h2>${option.toUpperCase()} · ${names[option]}</h2><p>${descriptions[option]}</p></div><div class="frame-wrap"><div class="frame">${header(option)}<div class="wf-body">${({a,b})[option]()}</div></div></div><p class="flow-line"><strong>${moments[state.scene]}</strong>${flows[option][state.scene]}</p><p class="annotation">${annotations[option][state.scene]}</p></article>`).join('');
+ $('#wireframes').innerHTML=['a'].map(option=>`<article class="concept" data-option="${option}"><div class="concept-heading"><h2>${option.toUpperCase()} · ${names[option]}</h2><p>${descriptions[option]}</p></div><div class="frame-wrap"><div class="frame">${header(option)}<div class="wf-body">${({a})[option]()}</div></div></div><p class="flow-line"><strong>${moments[state.scene]}</strong>${flows[option][state.scene]}</p><p class="annotation">${annotations[option][state.scene]}</p></article>`).join('');
  for(const kind of ['device','scene'])document.querySelectorAll(`[data-${kind}]`).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[kind]===state[kind])));
  $('#comment-mode').setAttribute('aria-pressed',String(state.commenting));$('#comment-mode').textContent=state.commenting?'Stop commenting':'Pin a comment';
  fit();
