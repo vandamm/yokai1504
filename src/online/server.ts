@@ -16,7 +16,8 @@ export interface Room {
   initial: GameState; state: GameState; checkpoints: Position[]; actions: ReplayAction[];
   audit: ((ReplayAction & { kind: 'command' }) | { kind: 'undo' })[];
   receipts: { actor: PlayerId; commandId: string; payload: string }[];
-  undoRequestedBy: PlayerId | null;
+  undoRequestedBy: PlayerId | null; // Legacy rooms may still contain a pending approval.
+  undoWindow?: { player: PlayerId; floor: number } | null;
 }
 export type RoomRequest =
   | { type: 'create'; matchId: string; name: string; tokenHash: string; inviteHash: string; seed: number }
@@ -57,7 +58,7 @@ export function validateAction(value: unknown): asserts value is OnlineAction {
         if (!object(allocation)) return false;
         keys(allocation, ['cardId', 'count']); return text(allocation.cardId) && integer(allocation.count, 11);
       }), 'Invalid soul allocation.'); break;
-    case 'endTurn': case 'requestUndo': case 'acceptUndo': case 'declineUndo': case 'cancelUndo': keys(command, ['type']); break;
+    case 'endTurn': case 'undo': case 'requestUndo': keys(command, ['type']); break;
     default: throw new ServerError(400, 'Unknown command.');
   }
 }
@@ -66,9 +67,27 @@ function canonical(value: unknown): string {
   if (object(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
   return JSON.stringify(value);
 }
+function undoBoundary(room: Room): Room['undoWindow'] {
+  if (room.undoWindow !== undefined) return room.undoWindow;
+  let window: Room['undoWindow'] = null, depth = 0;
+  for (const event of room.audit) {
+    if (event.kind === 'command') {
+      if (!window || window.player !== event.actor) window = { player: event.actor, floor: depth };
+      depth++;
+    } else {
+      depth = Math.max(0, depth - 1);
+      if (window) window.floor = Math.min(window.floor, depth);
+    }
+  }
+  return window;
+}
+function canUndo(room: Room, actor: PlayerId): boolean {
+  const window = undoBoundary(room);
+  return !!window && window.player === actor && room.actions.length > window.floor;
+}
 function snapshot(room: Room, viewer: PlayerId): OnlineSnapshot {
   return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), viewer,
-    openHands: false, canUndo: room.checkpoints.length > 0, waitingForOpponent: room.tokenHashes[1] === null,
+    openHands: false, canUndo: canUndo(room, viewer), waitingForOpponent: room.tokenHashes[1] === null,
     undoRequestedBy: room.undoRequestedBy, recentHistory: room.state.history.slice(room.checkpoints.at(-1)?.historyLength ?? 0) };
 }
 
@@ -81,7 +100,7 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
     }
     const state = createGame({ seed: request.seed, names: [validateName(request.name), 'Opponent'] }, randomSource);
     const room: Room = { matchId: request.matchId, revision: 0, tokenHashes: [request.tokenHash, null], inviteHash: request.inviteHash, joinReceipt: null,
-      initial: state, state, checkpoints: [], actions: [], audit: [], receipts: [], undoRequestedBy: null };
+      initial: state, state, checkpoints: [], actions: [], audit: [], receipts: [], undoRequestedBy: null, undoWindow: null };
     return { room, value: snapshot(room, 0) };
   }
   check(current, 'Not authorized.', 401);
@@ -100,6 +119,7 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
   }
   const actor = current.tokenHashes.findIndex(hash => hash !== null && hash === request.tokenHash);
   check(actor === 0 || actor === 1, 'Not authorized.', 401);
+  if (current.undoWindow === undefined || current.undoRequestedBy !== null) current = { ...current, undoWindow: undoBoundary(current), undoRequestedBy: null, revision: current.revision + 1 };
   if (request.type === 'snapshot') return { room: current, value: snapshot(current, actor) };
   if (request.type === 'replay') {
     check(current.state.phase === 'finished', 'The replay is available after the match has finished.', 409);
@@ -119,27 +139,19 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
   let room = { ...current, revision: current.revision + 1 };
   const command = action.command;
   switch (command.type) {
-    case 'requestUndo':
-      check(current.undoRequestedBy === null && current.checkpoints.length > 0, 'There is no action available to undo or an undo is already pending.', 409);
-      room.undoRequestedBy = actor; break;
-    case 'acceptUndo': {
-      check(current.undoRequestedBy !== null && current.undoRequestedBy !== actor, 'Only the opponent may accept this undo.', 409);
+    case 'undo':
+    case 'requestUndo': {
+      check(canUndo(current, actor), 'Undo is unavailable after the opponent acts or before your own first action.', 409);
       const { historyLength, ...position } = current.checkpoints.at(-1)!;
       room = { ...room, state: { ...position, history: current.state.history.slice(0, historyLength) },
-        undoRequestedBy: null, checkpoints: current.checkpoints.slice(0, -1), actions: current.actions.slice(0, -1), audit: [...current.audit, { kind: 'undo' }] }; break;
+        undoWindow: undoBoundary(current), checkpoints: current.checkpoints.slice(0, -1), actions: current.actions.slice(0, -1), audit: [...current.audit, { kind: 'undo' }] }; break;
     }
-    case 'declineUndo':
-      check(current.undoRequestedBy !== null && current.undoRequestedBy !== actor, 'Only the opponent may decline this undo.', 409);
-      room.undoRequestedBy = null; break;
-    case 'cancelUndo':
-      check(current.undoRequestedBy === actor, 'Only the requester may cancel this undo.', 409);
-      room.undoRequestedBy = null; break;
     default: {
-      check(current.undoRequestedBy === null, 'Respond to the pending undo before playing.', 409);
       check(current.actions.length < 2000 && current.audit.length < 10000, 'This match has reached its action limit.', 409);
       const state = applyCommand(current.state, actor, command);
       const { history, ...position } = current.state;
-      room = { ...room, state, checkpoints: [...current.checkpoints, { ...position, historyLength: history.length }],
+      const window = undoBoundary(current);
+      room = { ...room, state, undoWindow: window?.player === actor ? window : { player: actor, floor: current.actions.length }, checkpoints: [...current.checkpoints, { ...position, historyLength: history.length }],
         actions: [...current.actions, { actor, command }], audit: [...current.audit, { kind: 'command', actor, command }] }; break;
     }
   }

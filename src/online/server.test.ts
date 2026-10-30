@@ -9,7 +9,7 @@ function setup() {
   let room = reduceRoom(null, { type: 'create', matchId: 'room', name: 'Host', tokenHash: host, inviteHash: 'invite-hash', seed: 42 }).room;
   const send = (request: RoomRequest) => { const result = reduceRoom(room, request); room = result.room; return result.value; };
   const join = () => send({ type: 'join', name: 'Guest', inviteHash: 'invite-hash', tokenHash: guest });
-  const command = (tokenHash: string, type: 'endTurn' | 'requestUndo' | 'acceptUndo' | 'declineUndo' | 'cancelUndo', id = `id-${room!.revision}`, revision = room!.revision) => send({ type: 'command', tokenHash, action: { commandId: id, expectedRevision: revision, command: { type } as OnlineCommand } });
+  const command = (tokenHash: string, type: 'endTurn' | 'undo' | 'requestUndo', id = `id-${room!.revision}`, revision = room!.revision) => send({ type: 'command', tokenHash, action: { commandId: id, expectedRevision: revision, command: { type } as OnlineCommand } });
   return { send, join, command, get room() { return room!; } };
 }
 
@@ -101,27 +101,89 @@ it.each(['trap', 'effect', 'turnEnd'] as const)('enforces the authenticated deci
   game.send({ type: 'command', tokenHash: right, action }); expect(game.room.revision).toBe(action.expectedRevision + 1);
 });
 
-it('requires opposite-seat undo consent, pauses moves and supports decline, cancel and acceptance', () => {
-  const game = setup(); game.join(); const initial = structuredClone(game.room.state);
-  game.command(game.room.state.decisionPlayer === 0 ? host : guest, 'endTurn');
-  game.command(host, 'requestUndo'); const pending = JSON.stringify(game.room);
-  expect(() => game.command(host, 'acceptUndo')).toThrow(/opponent/);
-  expect(() => game.command(host, 'declineUndo')).toThrow(/opponent/);
-  expect(() => game.command(guest, 'cancelUndo')).toThrow(/requester/);
-  expect(() => game.command(game.room.state.decisionPlayer === 0 ? host : guest, 'endTurn')).toThrow(/undo/);
-  expect(JSON.stringify(game.room)).toBe(pending);
-  game.command(guest, 'declineUndo'); expect(game.room.undoRequestedBy).toBeNull();
-  game.command(guest, 'requestUndo'); game.command(guest, 'cancelUndo');
-  game.command(host, 'requestUndo'); game.command(guest, 'acceptUndo');
-  expect(game.room.state).toEqual(initial); expect(game.room.actions).toHaveLength(0);
-  expect(() => game.command(host, 'requestUndo')).toThrow(/undo/);
+function act(game: ReturnType<typeof setup>, actor: PlayerId, command: GameCommand) {
+  return game.send({ type: 'command', tokenHash: actor === 0 ? host : guest, action: { commandId: `move-${game.room.revision}`, expectedRevision: game.room.revision, command } });
+}
+function canUndo(game: ReturnType<typeof setup>, actor: PlayerId) {
+  return (game.send({ type: 'snapshot', tokenHash: actor === 0 ? host : guest }) as any).canUndo;
+}
+function playYokai(game: ReturnType<typeof setup>, actor: PlayerId) {
+  const id = game.room.state.players[actor].hand.find(id => !['sake','jufu','boseki','ougi','hamaya','kozuchi'].includes(game.room.state.cards[id].def))!;
+  expect(id).toBeTruthy(); act(game, actor, { type: 'play', cardId: id }); return id;
+}
+
+it('undoes own actions immediately, repeatedly, without a consent state', () => {
+  const game = setup(); game.join(); const initial = structuredClone(game.room.state), actor = initial.decisionPlayer;
+  const token = actor === 0 ? host : guest, id = playYokai(game, actor);
+  act(game, actor, { type: 'evoke', cardId: id });
+  expect(canUndo(game, actor)).toBe(true); expect(canUndo(game, actor === 0 ? 1 : 0)).toBe(false);
+  game.command(token, 'undo'); expect(game.room.state.cards[id].souls).toBe(0);
+  game.command(token, 'undo'); expect(game.room.state).toEqual(initial);
+  expect(game.room.undoRequestedBy).toBeNull(); expect(canUndo(game, actor)).toBe(false);
+  expect(() => game.command(token, 'undo')).toThrow(/undo/i);
+});
+
+it('allows undoing End turn and earlier own actions before the opponent acts', () => {
+  const game = setup(); game.join(); const initial = structuredClone(game.room.state), actor = initial.decisionPlayer, token = actor === 0 ? host : guest;
+  playYokai(game, actor); game.command(token, 'endTurn');
+  const next = game.room.state.decisionPlayer;
+  expect(canUndo(game, actor)).toBe(true); expect(canUndo(game, next)).toBe(false);
+  expect(() => act(game, next, { type: 'evoke', cardId: 'missing' })).toThrow();
+  expect(canUndo(game, actor)).toBe(true);
+  game.command(token, 'undo'); expect(game.room.state.turn).toBe(initial.turn);
+  game.command(token, 'undo'); expect(game.room.state).toEqual(initial);
+});
+
+it('permanently closes the prior player window after the opponent first acts, even if that action is undone', () => {
+  const game = setup(); game.join(); const first = game.room.state.decisionPlayer, second = first === 0 ? 1 : 0;
+  game.command(first === 0 ? host : guest, 'endTurn');
+  const beginning = structuredClone(game.room.state); playYokai(game, second);
+  expect(canUndo(game, first)).toBe(false); expect(canUndo(game, second)).toBe(true);
+  expect(() => game.command(first === 0 ? host : guest, 'undo')).toThrow(/undo/i);
+  game.command(second === 0 ? host : guest, 'undo'); expect(game.room.state).toEqual(beginning);
+  expect(canUndo(game, first)).toBe(false); expect(canUndo(game, second)).toBe(false);
+  expect(() => game.command(second === 0 ? host : guest, 'undo')).toThrow(/undo/i);
+});
+
+it('resolves the first-opponent-action versus undo race by revision, without changing rejected positions', () => {
+  const game = setup(); game.join(); const first = game.room.state.decisionPlayer, second = first === 0 ? 1 : 0;
+  game.command(first === 0 ? host : guest, 'endTurn'); const revision = game.room.revision;
+  game.command(second === 0 ? host : guest, 'endTurn'); const saved = JSON.stringify(game.room);
+  expect(() => game.command(first === 0 ? host : guest, 'undo', 'race', revision)).toThrow(/revision/);
+  expect(JSON.stringify(game.room)).toBe(saved);
+  game.command(second === 0 ? host : guest, 'undo');
+  const retry: RoomRequest = { type: 'command', tokenHash: second === 0 ? host : guest, action: {commandId:`id-${revision + 1}`,expectedRevision:revision + 1,command:{type:'undo'}} };
+  const persisted = JSON.parse(JSON.stringify(game.room));
+  expect(reduceRoom(persisted, retry).room).toBe(persisted);
+  expect((reduceRoom(persisted, {type:'snapshot',tokenHash:first === 0 ? host : guest}).value as any).canUndo).toBe(false);
+});
+
+it('treats a trap response as an opponent action and never undoes the opponent’s choices', () => {
+  const game = setup(); game.join(); const state = game.room.state;
+  state.turn = 3; state.turnPlayer = state.decisionPlayer = 0;
+  const attacker = relocate(state,0,'kappa','field'); relocate(state,1,'sake','trap');
+  act(game,0,{type:'attack',attacker,target:null}); expect(canUndo(game,0)).toBe(true);
+  act(game,1,{type:'respond',activate:true}); expect(canUndo(game,0)).toBe(false); expect(canUndo(game,1)).toBe(true);
+  game.command(guest,'undo'); expect(game.room.state.phase).toBe('trap');
+  expect(canUndo(game,0)).toBe(false); expect(canUndo(game,1)).toBe(false);
+});
+
+it('upgrades existing rooms and clears obsolete approval prompts without losing game state', () => {
+  const game = setup(); game.join(); const actor = game.room.state.decisionPlayer;
+  game.command(actor === 0 ? host : guest,'endTurn');
+  const old = JSON.parse(JSON.stringify(game.room)); delete old.undoWindow; old.undoRequestedBy = actor;
+  const result = reduceRoom(old,{type:'snapshot',tokenHash:actor === 0 ? host : guest});
+  expect(result.room.state).toEqual(old.state); expect(result.room.revision).toBe(old.revision + 1);
+  expect((result.value as any).undoRequestedBy).toBeNull(); expect((result.value as any).canUndo).toBe(true);
+  const undone = reduceRoom(result.room,{type:'command',tokenHash:actor === 0 ? host : guest,action:{commandId:'old-client',expectedRevision:result.room.revision,command:{type:'requestUndo'}}});
+  expect(undone.room.state.turn).toBe(1); expect(undone.room.undoRequestedBy).toBeNull();
 });
 
 it('exports only a finished, authenticated replay that the local session can import after undo', async () => {
   const game = setup(); game.join();
   expect(() => game.send({ type: 'replay', tokenHash: host })).toThrow(/finished/);
-  game.command(game.room.state.decisionPlayer === 0 ? host : guest, 'endTurn');
-  game.command(host, 'requestUndo'); game.command(guest, 'acceptUndo');
+  const actor = game.room.state.decisionPlayer === 0 ? host : guest;
+  game.command(actor, 'endTurn'); game.command(actor, 'undo');
   for (let i = 0; !game.room.state.result && i < 100; i++) game.command(game.room.state.decisionPlayer === 0 ? host : guest, 'endTurn');
   expect(game.room.state.phase).toBe('finished');
   expect(() => game.send({ type: 'replay', tokenHash: 'bad' })).toThrow(/authorized/);

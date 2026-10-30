@@ -50,7 +50,7 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
       <h3>Souls & battle</h3><p>Each attached soul adds one attack, up to the card’s cap. Kappa gains another one attack per soul. Possession effects require at least one soul; passive effects are always active on the field. Release effects spend one attached soul.</p>
       <p>The weaker yokai is destroyed, and its controller takes the attack difference as damage. Ties destroy both without damage. A direct attack deals the attacker’s attack. Destroyed cards go to their original owner’s graveyard; all their souls return to the shared pool.</p>
       <h3>Local testing</h3><p>Play both sides on this device. Open hands shows both hands and traps; switching it off shows only the decision player’s hand. The table stays visible between decisions.</p>
-      <p>Undo restores the position before the last action, including automatic draws and damage. It cannot remove knowledge of cards you have seen. The match saves automatically in this browser.</p>
+      <p>Undo restores the position before the last action, including automatic draws and damage. It cannot remove knowledge of cards you have seen. The match saves automatically. Online Undo is immediate until the opponent takes an action, including after you end your turn.</p>
     </div>}
     {tab === 'cards' && <><p className="muted">One of each card belongs to each player’s deck. Select any card for readable text.</p><div className="reference-grid">{Object.values(CARDS).map(card => <button type="button" key={card.id} onClick={() => onInspect(card)}><img src={imagePath(card.id)} alt={card.name} loading="lazy" /><span>{card.name}</span></button>)}</div><p className="small muted">Card art and text from the designer’s official bilingual cards.</p></>}
     {tab === 'rulings' && <div className="rules-prose"><p>These timing interpretations are used by this app. They are provisional app rulings, not official clarifications.</p><ul>
@@ -193,7 +193,7 @@ export function App() {
     const current = snapshotRef.current;
     if (!onlineActiveRef.current) return true;
     const match = current as OnlineSnapshot | null;
-    return !!match && !online.pending && !match.waitingForOpponent && match.undoRequestedBy === null && match.viewer === match.view.decisionPlayer && !match.view.result;
+    return !!match && !online.pending && !match.waitingForOpponent && match.viewer === match.view.decisionPlayer && !match.view.result;
   };
   const present = (before: SessionSnapshot, next: SessionSnapshot, command?: GameCommand, geometry = captureGeometry()) => {
     if (next.revision <= before.revision) { acceptPlayback(before); return; }
@@ -252,7 +252,7 @@ export function App() {
       window.open(url.href, '_blank', 'noopener'); setReplayOpen(false); setNotice('Replay opened in a separate session. Your current match is unchanged.');
     } catch (reason) { setReplayError(errorMessage(reason)); }
   };
-  const undo = () => { const before = snapshotRef.current; if (before) { if (onlineActiveRef.current) void onlineAction({ type: 'requestUndo' }); else void perform(() => session.undo(before.revision)); } };
+  const undo = () => { const before = snapshotRef.current; if (before) { if (onlineActiveRef.current) void onlineAction({ type: 'undo' }); else void perform(() => session.undo(before.revision)); } };
   const toggleOpenHands = (value: boolean) => void perform(() => session.setOpenHands(value));
   const onDraft = (event: DraftEvent) => { if (!busyRef.current && mayAct()) { setDraft(old => updateDraft(old, event)); setNotice(null); setError(null); } };
   const view = snapshot?.view;
@@ -311,7 +311,6 @@ export function App() {
       {onlineMatch && <section className="online-status" aria-label="Online table" role="status">
         {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
         {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
-          : onlineMatch.undoRequestedBy !== null ? <><strong>{onlineMatch.undoRequestedBy === onlineMatch.viewer ? 'You requested an undo. Waiting for approval.' : `${view.players[onlineMatch.undoRequestedBy].name} requests an undo.`}</strong><div className="online-status-actions">{onlineMatch.undoRequestedBy === onlineMatch.viewer ? <button type="button" className="secondary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'cancelUndo' })}>Cancel request</button> : <><button type="button" className="primary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'acceptUndo' })}>Accept undo</button><button type="button" className="secondary" disabled={busy || pendingRetry} onClick={() => void onlineAction({ type: 'declineUndo' })}>Decline</button></>}</div></>
           : view.result ? <span>Finished table · replay available in Menu</span>
           : <span>{view.decisionPlayer === onlineMatch.viewer ? view.phase === 'trap' ? 'Your trap response' : 'Your decision' : `Waiting for ${view.players[view.decisionPlayer].name}${view.phase === 'trap' ? '’s trap response' : view.phase === 'effect' ? ' to resolve an effect' : ' to play'}`}</span>}
       </section>}
@@ -320,8 +319,7 @@ export function App() {
         {!playback && !actionBlocked && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
         {!actionBlocked && source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
         <Table view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
-          <TurnControls view={view} viewer={onlineMatch?.viewer} draft={draft} busy={actionBlocked} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={onlineMatch ? undefined : undo} canUndo={snapshot.canUndo} />
-          {onlineMatch && <button type="button" className="text-button online-undo" disabled={busy || pendingRetry || !snapshot.canUndo || onlineMatch.waitingForOpponent || onlineMatch.undoRequestedBy !== null} onClick={undo}>Request undo</button>}
+          <TurnControls view={view} viewer={onlineMatch?.viewer} draft={draft} busy={busy || pendingRetry || !!onlineMatch?.waitingForOpponent} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
           {playback && <span className="resolving-label" role="status">Resolving…</span>}
           {view.result && <button type="button" className="primary" onClick={() => setRestart(true)}>Play again</button>}
         </>} onSoul={actionBlocked ? undefined : soul} onRelease={actionBlocked ? undefined : card => void submit({ type: 'release', cardId: card.id })} />

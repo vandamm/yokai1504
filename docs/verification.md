@@ -1,3 +1,13 @@
+# Immediate online Undo — 2026-10-30
+
+- Removed online approval prompts. Undo reverses only the authenticated player’s own uninterrupted action window, including End turn and its automatic draw. The opponent’s first accepted action closes the previous window; undoing that first action does not reopen it.
+- Persisted a per-room Undo boundary independent of the checkpoint stack. Existing rooms derive it from their accepted-action audit; old approval prompts are cleared on authenticated access. Old clients’ requestUndo command is accepted as immediate Undo under the same server checks.
+- Tests cover repeated own Undo, End turn reversal, rejected moves and polling, the opponent cutoff, undoing the opponent’s first move, stale-revision races, receipt retries/reload, trap responses and legacy room migration. The Undo button stays enabled outside your turn until the server closes the window, without showing the opponent’s action controls.
+- Two isolated browser seats verified immediate End turn reversal, the first-opponent-move cutoff and persistence of that cutoff after the opponent undoes their move. The HTTP smoke completed 39 actions to victory and imported its replay with the new Undo rules.
+- 271 tests across 24 files, frontend/Worker TypeScript checks, production build and whitespace checks pass.
+
+---
+
 # Reconnection recovery — 2026-10-30
 
 - Kept temporary polling failures separate from action errors. A successful poll clears a connection warning even when the room revision has not changed; rejected action explanations remain available.

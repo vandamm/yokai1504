@@ -42,11 +42,22 @@ try {
     const current = await read(seat);
     return request(`${room}/commands`, tokens[seat], { commandId: crypto.randomUUID(), expectedRevision: current.revision, command });
   };
-  await send(actor, { type: 'requestUndo' });
-  await send(1 - actor, { type: 'acceptUndo' });
+  assert.equal(views[actor].canUndo,true);
+  assert.equal(views[1-actor].canUndo,false);
+  await send(actor, { type: 'undo' });
   views = await Promise.all([read(0), read(1)]);
   assert.equal(views[0].view.turn, initial.turn);
   assert(views[0].revision > action.expectedRevision, 'undo revisions must be monotonic');
+  await send(actor, {type:'endTurn'});
+  await send(1-actor, {type:'endTurn'});
+  views = await Promise.all([read(0), read(1)]);
+  assert.equal(views[actor].canUndo,false, 'opponent action must close previous undo window');
+  await send(1-actor, {type:'undo'});
+  views = await Promise.all([read(0), read(1)]);
+  assert.equal(views[actor].canUndo,false, 'opponent undo must not reopen a closed window');
+  assert.equal(views[1-actor].canUndo,false, 'cannot undo the other player’s actions');
+  await send(1-actor, {type:'endTurn'});
+  views = await Promise.all([read(0), read(1)]);
   let steps = 0;
   while (!views[0].view.result && steps++ < 400) {
     const seat = views[0].view.decisionPlayer, view = views[seat].view;
@@ -85,5 +96,5 @@ try {
   let saved;
   const imported = await new LocalSession({getItem:()=>saved??null,setItem:(_key,value)=>{saved=value;}},()=>crypto.randomUUID()).importReplay(JSON.stringify(file));
   assert.deepEqual(imported.view.result,views[0].view.result);
-  console.log(`Online HTTP smoke passed: two private seats, one-use invite, retry/stale checks, agreed undo, ${steps} actions to victory, validated replay.`);
+  console.log(`Online HTTP smoke passed: two private seats, one-use invite, retry/stale checks, immediate turn-window undo, ${steps} actions to victory, validated replay.`);
 } finally { await vite.close(); }

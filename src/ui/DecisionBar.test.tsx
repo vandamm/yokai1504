@@ -55,3 +55,12 @@ it('keeps inspection available without attributing the opponent’s controls to 
   expect(html).not.toContain('End turn');
   expect(html).not.toContain('actions left');
 });
+
+it('keeps Undo available after ending your turn while hiding the opponent’s action controls', () => {
+  const view = position(); view.decisionPlayer = view.turnPlayer = 1;
+  const html = renderToStaticMarkup(<TurnControls view={view} viewer={0} draft={emptyDraft()} busy={false} onCommand={() => {}} onDetails={() => {}} onUndo={() => {}} canUndo />);
+  expect(html).toContain('aria-label="Undo"');
+  expect(html).not.toContain('disabled');
+  expect(html).not.toContain('End turn');
+  expect(html).not.toContain('actions left');
+});
