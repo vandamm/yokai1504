@@ -47,7 +47,7 @@ export function resolveDrop(view: GameView, draft: TableDraft, sourceId: string,
     const reason = actionUnavailableReason(view, card, 'attack');
     if (reason) return invalid(reason);
     if (target?.zone === 'field' && target.controller === opponent) return { command: { type: 'attack', attacker: card.id, target: target.id } };
-    if (targetId === `player:${opponent}` && !view.players[opponent].field.length) return { command: { type: 'attack', attacker: card.id, target: null } };
+    if ((targetId === `player:${opponent}` || targetId === `field:${opponent}`) && !view.players[opponent].field.length) return { command: { type: 'attack', attacker: card.id, target: null } };
   }
   return invalid();
 }

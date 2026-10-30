@@ -20,8 +20,21 @@ it('declares attacks by dropping a field yokai on a defender or an empty-field p
   const v = view(), a = v.players[0].hand![0], b = v.players[1].hand![0]; a.zone = b.zone = 'field'; v.players[0].field = [a]; v.players[1].field = [b];
   expect(resolveDrop(v, emptyDraft(), a.id, b.id).command).toEqual({ type: 'attack', attacker: a.id, target: b.id });
   expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toBeUndefined();
+  expect(resolveDrop(v, emptyDraft(), a.id, 'field:1').command).toBeUndefined();
   v.players[1].field = []; expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toEqual({ type: 'attack', attacker: a.id, target: null });
+  expect(resolveDrop(v, emptyDraft(), a.id, 'field:1').command).toEqual({ type: 'attack', attacker: a.id, target: null });
   v.phase = 'turnEnd'; expect(resolveDrop(v, emptyDraft(), a.id, 'player:1').command).toBeUndefined();
+});
+
+it.each([0, 1] as const)('lets seat %i attack an empty opposing field after spending both main actions', seat => {
+  const v = view(); v.turnPlayer = v.decisionPlayer = seat; v.actionsUsed = 2;
+  const attacker = v.players[seat].hand!.find(card => card.definition.kind === 'yokai')!;
+  attacker.zone = 'field'; v.players[seat].field = [attacker];
+  const opponent = seat === 0 ? 1 : 0;
+  expect(resolveDrop(v, emptyDraft(), attacker.id, `field:${opponent}`).command).toEqual({ type: 'attack', attacker: attacker.id, target: null });
+  expect(resolveDrop(v, emptyDraft(), attacker.id, `field:${seat}`).command).toBeUndefined();
+  v.turn = 1; expect(resolveDrop(v, emptyDraft(), attacker.id, `field:${opponent}`).command).toBeUndefined();
+  v.turn = 3; v.phase = 'trap'; expect(resolveDrop(v, emptyDraft(), attacker.id, `field:${opponent}`).command).toBeUndefined();
 });
 
 it('only picks up the decision player’s cards, including when both hands are open', () => {

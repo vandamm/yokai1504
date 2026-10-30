@@ -1,3 +1,10 @@
+# Continuous sides and empty-field attacks — 2026-10-30
+
+- The acting side has one uninterrupted tint from the center divider through the field and hand, including the battlefield gutters. Separate edge lines are removed. Both the near side on a 375 × 667 phone viewport and the far side in a 1440 × 900 online viewer were visually checked.
+- Dragging a field yokai onto the empty opposing play area now declares a direct attack. The whole field lights up and says Drop to attack directly while it is a valid destination; dropping onto health remains supported. Occupied opposing fields still require choosing a yokai.
+- Actual pointer drags at phone sizes dealt five damage, reducing health from 15 to 10 with both main actions already spent. Undo restored the original position and another direct drag worked. Keyboard pickup also exposed the empty-field destination. Tests cover both seats, occupied/own fields, first-turn restrictions and pending decisions.
+- 287 tests, frontend/Worker TypeScript checks, production build and whitespace checks pass. Physical-phone touch testing remains unverified.
+
 # Trap choices and battle presentation — 2026-10-30
 
 - Trap responses offer Activate trap and Keep hidden. Ougi selects donor then recipient directly on the field; its duplicate target buttons and drag route are removed.

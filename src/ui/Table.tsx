@@ -88,12 +88,15 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
 
   function seat(player: PlayerView, top: boolean) {
     const trap = player.trap;
+    const fieldDrop = drag.drop(`field:${player.id}`);
+    const directAttack = player.id !== view.decisionPlayer && player.field.length === 0 && !!fieldDrop['data-drop-state'];
     const targetTrap = targetTrapSeats.includes(player.id) || (visibleTrap(trap) && targetIds.includes(trap.id));
     const chosenTrap = chosenTargets.includes(`trap:${player.id}`) || (visibleTrap(trap) && chosenTargets.includes(trap.id));
     const selectedTrap = chosenTrap || (visibleTrap(trap) && selectedId === trap.id);
     const topDiscard = player.graveyard.at(-1);
     const trapContents = <>{trap ? <img src={visibleTrap(trap) ? cardImage(trap) : cardBack(player.id)} alt="" draggable={false} /> : <span className="empty-trap-card" aria-hidden="true">×</span>}<span className="pile-caption">Trap</span></>;
-    return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s play area`}>
+    return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} {...fieldDrop} aria-label={`${player.name}’s play area${directAttack ? ', drop to attack directly' : ''}`}>
+      {directAttack && <span className="direct-attack-hint" aria-hidden="true">Drop to attack directly</span>}
       <div className="field" data-field-seat={player.id} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s yokai`}>{[0, 1, 2].map(index => player.field[index] ? cardButton(player.field[index]) : <div key={`empty-${index}`} className="empty-slot" aria-label="Empty yokai position" />)}</div>
       <div className="rear-piles">
         <div className="table-deck" data-deck-seat={player.id} aria-label={`${player.name}’s deck, ${player.deckCount} cards`}><Pile image={cardBack(player.id)} count={player.deckCount} /><span className="pile-caption">Deck</span></div>
