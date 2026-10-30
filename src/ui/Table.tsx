@@ -71,12 +71,14 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
   }
 
   function hand(player: PlayerView, top: boolean) {
+    const active = !view.result && player.id === view.turnPlayer;
     const owner = <>
+      {active && <span className="seat-turn">Turn</span>}
       <strong title={player.name}>{player.name}</strong>
       <span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b></span>
       {top && player.hand && <span className="hand-expand-hint" aria-hidden="true">{expandedHand ? '⌃' : '⌄'}</span>}
     </>;
-    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
+    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''} ${active ? 'turn-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
       {top && player.hand ? <button type="button" className="seat-summary seat-summary-toggle" onClick={() => setExpandedHand(value => !value)} aria-expanded={expandedHand} aria-label={`${expandedHand ? 'Compact' : 'Expand'} ${player.name}’s hand`} aria-description={`${player.health} health; ${player.handCount} cards`}>{owner}</button> : <div className="seat-summary">{owner}{!top && turnControls}</div>}
       <HandTrack key={player.id} player={player} openHands={openHands}>
         {player.hand ? player.hand.length ? player.hand.map(card => cardButton(card, true)) : <span className="empty-hand">No cards in hand</span> : Array.from({ length: player.handCount }, (_, index) => <span className="hand-back" key={index} aria-hidden="true"><img src={cardBack(player.id)} alt="" draggable={false} /></span>)}

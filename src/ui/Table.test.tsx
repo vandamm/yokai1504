@@ -37,6 +37,10 @@ it('seats the defender at the near edge during a trap response, independently of
   expect(html).toContain('Player 2’s hand, near edge');
   expect(html.indexOf('Player 1’s yokai')).toBeLessThan(html.indexOf('class="table-divider'));
   expect(html.indexOf('Player 2’s yokai')).toBeGreaterThan(html.indexOf('class="table-divider'));
+  const far = html.slice(html.indexOf('class="top-hand'), html.indexOf('class="battlefield'));
+  const near = html.slice(html.indexOf('class="bottom-hand'));
+  expect(far).toContain('class="seat-turn"');
+  expect(near).not.toContain('class="seat-turn"');
 });
 
 it('renders current combat values and exactly the card’s capacity using original soul art slots', () => {
@@ -90,4 +94,17 @@ it('keeps the online viewer near even when the opponent is deciding', () => {
   const near = html.slice(html.indexOf('class="bottom-hand'));
   expect(near).toContain('class="table-card');
   for (const id of state.players[0].hand) expect(html).not.toContain(id);
+});
+
+it('moves the turn badge with the turn owner and clears it when the game ends', () => {
+  const view = viewForPlayer(createGame({ seed: 45, startingPlayer: 0 }), 0);
+  view.turnPlayer = 1;
+  const html = markup(view);
+  const far = html.slice(html.indexOf('class="top-hand'), html.indexOf('class="battlefield'));
+  expect(far).toContain('turn-active');
+  expect(far).toContain('class="seat-turn"');
+  expect(html.match(/class="seat-turn"/g)).toHaveLength(1);
+  view.result = { winner: 1, reason: 'Health depleted' };
+  expect(markup(view)).not.toContain('turn-active');
+  expect(markup(view)).not.toContain('class="seat-turn"');
 });

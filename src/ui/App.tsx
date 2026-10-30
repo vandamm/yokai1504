@@ -110,8 +110,20 @@ function GraveyardTarget({ card, selected, onInspect }: { card: VisibleCard; sel
   return <button type="button" {...bindings} data-card-id={card.id} aria-label={`${bindings['data-drag'] ? 'Drag' : 'Choose'} ${card.definition.name} from the graveyard`} aria-pressed={selected} onClick={onInspect}><CardFace card={card} /><span>{card.definition.name}</span></button>;
 }
 
-function TurnSummary({ view, openHands }: { view: GameView; openHands: boolean }) {
-  return <div className="turn-summary"><span>Turn {Math.ceil(view.turn / 2)} · {view.players[view.turnPlayer].name}</span>{view.phase !== 'main' && <strong>{view.result ? `${view.result.winner === null ? 'Draw' : view.players[view.result.winner].name + ' wins'}` : view.phase === 'trap' ? 'Trap response' : view.phase === 'turnEnd' ? 'Attack complete' : 'Resolve effect'}</strong>}{openHands && <span className="mode-label">Open hands</span>}</div>;
+export function TurnSummary({ view, openHands, viewer }: { view: GameView; openHands: boolean; viewer?: PlayerId }) {
+  const owner = view.players[view.turnPlayer].name;
+  const actor = view.players[view.decisionPlayer].name;
+  const ownDecision = viewer === view.decisionPlayer;
+  const phase = view.phase === 'trap' ? viewer === undefined ? `${actor}’s trap response` : ownDecision ? 'Your trap response' : `Waiting for ${actor}’s trap response`
+    : view.phase === 'effect' ? viewer === undefined ? `${actor} resolves an effect` : ownDecision ? 'Resolve your effect' : `Waiting for ${actor} to resolve an effect`
+    : view.phase === 'turnEnd' ? viewer === undefined || ownDecision ? 'Attack complete · End the turn when ready' : `Attack complete · Waiting for ${actor} to end the turn`
+    : '';
+  return <div className="turn-summary">
+    <strong className="turn-owner">{view.result ? view.result.winner === null ? 'Draw' : `${view.players[view.result.winner].name} wins` : viewer === view.turnPlayer ? 'Your turn' : `${owner}’s turn`}</strong>
+    <span className="turn-number">Turn {Math.ceil(view.turn / 2)}</span>
+    {!view.result && phase && <span className="turn-phase">{phase}</span>}
+    {openHands && <span className="mode-label">Open hands</span>}
+  </div>;
 }
 
 export function App() {
@@ -310,12 +322,11 @@ export function App() {
     </header>
     {errorBanner}
     {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={online.rooms()} busy={busy} onRules={() => setRules(true)} /> : <>
-      {!rail && <div className="match-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div>}
-      {onlineMatch && <section className="online-status" aria-label="Online table" role="status">
+      {!rail && !onlineMatch && <div className="match-status" role="status"><TurnSummary view={view} openHands={snapshot.openHands} /></div>}
+      {onlineMatch && <section className={`online-status ${!view.result && !onlineMatch.waitingForOpponent && view.turnPlayer === onlineMatch.viewer ? 'your-turn' : ''}`} aria-label="Online table" role="status">
         {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
         {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
-          : view.result ? <span>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Finished game · replay export finalizes the result'}</span>
-          : <span>{view.decisionPlayer === onlineMatch.viewer ? view.phase === 'trap' ? 'Your trap response' : 'Your decision' : `Waiting for ${view.players[view.decisionPlayer].name}${view.phase === 'trap' ? '’s trap response' : view.phase === 'effect' ? ' to resolve an effect' : ' to play'}`}</span>}
+          : <><TurnSummary view={view} viewer={onlineMatch.viewer} openHands={false} />{view.result && <span>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Finished game · replay export finalizes the result'}</span>}</>}
       </section>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
       <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={actionBlocked} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
@@ -328,7 +339,7 @@ export function App() {
         </>} onSoul={actionBlocked ? undefined : soul} onRelease={actionBlocked ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
         {!playback && !actionBlocked && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
       </div></DragSurface>
-      {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
+      {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
       </main>
     </>}
     {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command)} geometry={playback.geometry} onComplete={finishPlayback} />}
@@ -338,7 +349,7 @@ export function App() {
       {(!onlineMatch || view?.result) && <><p className="small muted">Replay files include both hands and deck order.{onlineMatch && ' Exporting finalizes this game and permanently disables Undo for both players.'}</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>{onlineMatch ? 'Export replay & finalize' : 'Export replay'}</button></>}<button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setRestart(true); }}>New game</button></div></Modal>}
     {replayOpen && <Modal title="Import replay" onClose={() => setReplayOpen(false)}><p>Choose an exported JSON file or paste it below. The replay opens in a separate session with its own save.</p><input type="file" accept=".json,application/json" aria-label="Replay file" onChange={async event => { const file = event.target.files?.[0]; if (file) { if (file.size > 5_000_000) setReplayError('The replay file is too large.'); else setReplayText(await file.text()); } }} /><textarea className="replay-input" aria-label="Replay JSON" value={replayText} onChange={event => setReplayText(event.target.value)} placeholder="Paste replay JSON" /><label className="replay-through">Replay through action<input type="number" min="0" max={replayCount} value={replayThrough} onChange={event => setReplayThrough(event.target.value)} placeholder={replayCount === undefined ? 'All actions' : `All ${replayCount} actions`} /></label>{replayError && <p role="alert">{replayError}</p>}<button type="button" className="primary" disabled={!replayText.trim()} onClick={() => void importReplay()}>Open replay in new session</button></Modal>}
-    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /></Modal>}
+    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /></Modal>}
     {desktop && (shiftHeld || hovered?.def) && hovered && hoveredDefinition && !busy && !detailsOpen && !menu && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredDefinition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredDefinition} card={hoveredCard} /></div>, document.querySelector('dialog[open]') ?? document.body)}
     {detailsOpen && view && <Modal title="Card details" className="details-drawer" onClose={() => setDetailsOpen(false)}>{detailsContent}</Modal>}
     {rules && <Rules onClose={() => setRules(false)} onInspect={setReference} />}
