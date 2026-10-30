@@ -104,6 +104,31 @@ it.each(['trap', 'effect', 'turnEnd'] as const)('enforces the authenticated deci
 function act(game: ReturnType<typeof setup>, actor: PlayerId, command: GameCommand) {
   return game.send({ type: 'command', tokenHash: actor === 0 ? host : guest, action: { commandId: `move-${game.room.revision}`, expectedRevision: game.room.revision, command } });
 }
+
+it('projects the post-Ougi battle frame privately to both seats and clears it on Undo', () => {
+  const game = setup(); game.join(); const state = game.room.state;
+  state.turn = 3; state.turnPlayer = state.decisionPlayer = 0;
+  const yuki = relocate(state, 0, 'yuki-onna', 'field'), kappa = relocate(state, 1, 'kappa', 'field');
+  state.cards[yuki].souls = 2; state.supply -= 2; relocate(state, 1, 'ougi', 'trap');
+  act(game, 0, { type: 'attack', attacker: yuki, target: kappa });
+  act(game, 1, { type: 'respond', activate: true });
+  act(game, 1, { type: 'choose', targets: [yuki, kappa] });
+  for (const viewer of [0, 1] as const) {
+    const snapshot = game.send({ type: 'snapshot', tokenHash: viewer === 0 ? host : guest }) as any;
+    expect(snapshot.battleView.players[0].field[0]).toMatchObject({ id: yuki, souls: 1, attack: 4 });
+    expect(snapshot.battleView.players[1].field[0]).toMatchObject({ id: kappa, souls: 1, attack: 4 });
+    expect(snapshot.view.players[1].field).toEqual([]);
+    expect(snapshot.battleView.players[viewer].hand).not.toBeNull();
+    expect(snapshot.battleView.players[viewer === 0 ? 1 : 0].hand).toBeNull();
+    const serialized = JSON.stringify(snapshot.battleView);
+    expect(serialized).not.toMatch(/"deck":|tokenHash|checkpoints/);
+    for (const id of game.room.state.players[viewer === 0 ? 1 : 0].hand) expect(serialized).not.toContain(id);
+  }
+  const reloaded = reduceRoom(JSON.parse(JSON.stringify(game.room)), { type: 'snapshot', tokenHash: host }).value as any;
+  expect(reloaded.battleView.players[1].field[0].attack).toBe(4);
+  game.command(guest, 'undo');
+  expect((game.send({ type: 'snapshot', tokenHash: host }) as any).battleView).toBeUndefined();
+});
 function canUndo(game: ReturnType<typeof setup>, actor: PlayerId) {
   return (game.send({ type: 'snapshot', tokenHash: actor === 0 ? host : guest }) as any).canUndo;
 }

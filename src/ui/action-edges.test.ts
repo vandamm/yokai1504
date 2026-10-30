@@ -136,10 +136,10 @@ describe('projected interaction paths across complete games', () => {
             const command = effectCommand(view, draft);
             let dragged;
             if (source.def === 'sake' || source.def === 'jufu') dragged = resolveDrop(view, draft, source.id, 'resolve');
-            else if (source.def === 'ougi') dragged = resolveDrop(view, emptyDraft(), draft.targets[0], draft.targets[1]);
+            else if (source.def === 'ougi') expect(resolveDrop(view, emptyDraft(), draft.targets[0], draft.targets[1]).command).toBeUndefined();
             else if (source.def === 'boseki') dragged = resolveDrop(view, emptyDraft(), draft.targets[0], `field:${view.decisionPlayer}`);
             else dragged = resolveDrop(view, emptyDraft(), source.id, draft.targets[0]);
-            expect(dragged.command, `drag choice ${source.def}`).toEqual(command);
+            if (source.def !== 'ougi') expect(dragged!.command, `drag choice ${source.def}`).toEqual(command);
             let tappedDraft = emptyDraft(), tappedCommand: Extract<GameCommand, { type: 'choose' }> | undefined;
             const taps = source.def === 'sake' ? Object.entries(draft.allocations).flatMap(([id, count]) => Array.from({ length: count }, () => id)) : draft.targets;
             for (const id of taps) {

@@ -48,6 +48,23 @@ async function battleFixture(trap: boolean) {
 }
 
 describe('LocalSession', () => {
+  it('keeps a trap battle preview separate from the saved result, including after reload and Undo', async () => {
+    const { session, storage } = await begin();
+    const saved = JSON.parse(storage.value!), state = saved.state as GameState; state.turn = 3;
+    const yuki = move(state, 'yuki-onna', 0, 'field'), kappa = move(state, 'kappa', 1, 'field');
+    state.cards[yuki].souls = 2; state.supply -= 2; move(state, 'ougi', 1, 'trap');
+    storage.value = JSON.stringify(saved); await session.load();
+    await submit(session, 0, 'attack', { type: 'attack', attacker: yuki, target: kappa });
+    await submit(session, 1, 'respond', { type: 'respond', activate: true }, 1);
+    const result = await submit(session, 2, 'transfer', { type: 'choose', targets: [yuki, kappa] }, 1);
+    expect(result.battleView!.players[1].field[0]).toMatchObject({ id: kappa, souls: 1, attack: 4 });
+    expect(result.battleView!.players[0].hand).toBeNull();
+    expect(result.view.players[1].field).toEqual([]);
+    expect(result.view.players[0].field[0].souls).toBe(0);
+    expect(JSON.parse(storage.value!).state.players[1].field).toEqual([]);
+    expect((await new LocalSession(storage).load())!.battleView).toEqual(result.battleView);
+    expect((await session.undo(3)).battleView).toBeUndefined();
+  });
   it('loads no match from empty storage and saves a private initial game', async () => {
     const storage = new MemoryStorage();
     const session = new LocalSession(storage, () => 'match-one');

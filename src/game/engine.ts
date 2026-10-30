@@ -159,7 +159,7 @@ function beginEffect(state: GameState, id: string, actor: PlayerId, source: Sour
   if(c.def==='kozuchi') { draw(state,actor); draw(state,actor); finishEffect(state,attack); return; }
   state.phase='effect'; state.decisionPlayer=actor; state.pending={kind:'effect',actor,cardId:id,source,attack};
 }
-function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>): void {
+function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>, beforeBattle?: (state: GameState) => void): void {
   requireRule(state.phase==='effect' && state.pending?.kind==='effect','There is no effect choice to make.');
   const pending=state.pending, actor=pending.actor, def=card(state,pending.cardId).def;
   const targets=command.targets??[], allocations=command.allocations??[];
@@ -214,7 +214,15 @@ function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>)
       default: throw new RuleError('This card has no pending choice.');
     }
   }
+  if(pending.attack) beforeBattle?.(state);
   finishEffect(state,pending.attack);
+}
+/** A presentation frame after a trap's choices, before the declared battle. */
+export function previewBattle(state: GameState, command: GameCommand): GameState | undefined {
+  if(command.type!=='choose' || state.pending?.kind!=='effect' || !state.pending.attack) return;
+  let preview: GameState | undefined;
+  choose(structuredClone(state),command,resolved => { preview=structuredClone(resolved); });
+  return preview;
 }
 export function createGame(options: SetupOptions, randomSource?: () => number): GameState {
   requireRule(options && Number.isInteger(options.seed) && Number.isFinite(options.seed),'Use a finite integer shuffle seed.');

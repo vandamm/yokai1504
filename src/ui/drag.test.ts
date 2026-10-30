@@ -31,7 +31,7 @@ it('only picks up the decision player’s cards, including when both hands are o
   const enemy=v.players[1].hand![0]; enemy.zone='field'; v.players[1].field=[enemy];
   expect(canDragCard(v,enemy)).toBe(false);
   v.phase='trap'; v.decisionPlayer=1; enemy.zone='trap'; v.players[1].trap=enemy;
-  expect(canDragCard(v,enemy)).toBe(true);
+  expect(canDragCard(v,enemy)).toBe(false);
   expect(canDragCard(v,v.players[0].hand![0])).toBe(false);
 });
 it('casts a set spell by dragging it into the shared play area on your turn', () => {

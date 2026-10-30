@@ -406,7 +406,7 @@ input[type='checkbox'] { width: 20px; height: 20px; margin: 0; accent-color: var
 .effect-targets button[aria-pressed='true'] { background: #d8e9dd; }
 .effect-confirm:not(:empty) { margin-top: 8px; }
 .trap-prompt { align-items: center; flex-wrap: wrap; font-size: 14px; border-top: 1px solid var(--line); border-bottom: 0; }
-.trap-prompt button { margin-left: auto; }
+.trap-options { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .sidebar-turn-status { flex: 0 0 auto; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .sidebar-turn-status .turn-summary { gap: 7px; }
 .details-rail .rail-history { display: flex; flex: 1; flex-direction: column; min-height: 0; margin: 0; padding: 0; border: 0; }
@@ -460,9 +460,10 @@ input[type='checkbox'] { width: 20px; height: 20px; margin: 0; accent-color: var
 .setup-disclosure form, .recent-rooms { margin-top: 16px; }
 .recent-rooms { display: grid; gap: 14px; font-size: 14px; }
 .online-status { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 6px 12px; border-bottom: 1px solid #d2d9d2; background: #edf4e8; color: #36553c; font-size: 12px; }
-.online-status.your-turn { background: #dceee7; color: #174d47; }
-.turn-active { background: #e5efeb; box-shadow: inset 3px 0 var(--accent); }
-.turn-active .seat-summary > strong { color: #205963; font-weight: 700; }
+.side-active { background: #d3e8e1; box-shadow: inset 3px 0 var(--accent); }
+.side-active .seat-summary > strong { color: #205963; font-weight: 700; }
+.table-seat.side-active { border-radius: 0; }
+.table-card.target .card-face { filter: drop-shadow(0 0 6px #28687388); }
 .seat-turn { order: -1; padding: 2px 7px; border-radius: 3px; background: #286873; color: #fff; font-size: 10px; font-weight: 750; line-height: 1.3; text-transform: uppercase; letter-spacing: .6px; }
 .online-status-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .online-status button { padding: 5px 10px; font-size: 12px; }

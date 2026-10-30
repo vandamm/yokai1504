@@ -45,7 +45,7 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
         <li><strong>Take up to two main actions.</strong> Play a yokai, cast a spell from your hand or set trap, or evoke one soul onto a yokai. Drag a yokai onto your field or a spell onto your field. Use + soul beside an eligible yokai to evoke. Playing and evoking share the same two-action budget.</li>
         <li><strong>Prepare freely.</strong> Drag a spell to your Trap slot to set it face down, or release a yokai’s soul to activate its release effect. These do not use a main action. Your field holds three yokai and one trap.</li>
         <li><strong>Attack once, or end your turn.</strong> Drag one of your yokai onto an opposing yokai. If the opposing field is empty, drag onto the player’s health. The first player cannot attack on the first turn. Declaring an attack ends your main phase. Battle results stay on the table until you press End turn.</li>
-        <li><strong>Let the defender respond.</strong> The defender can drag their set trap onto their field or keep it hidden. Resolve its effect before battle. A set trap stays hidden until activated.</li>
+        <li><strong>Let the defender respond.</strong> Choose Activate trap or Keep hidden. Resolve its effect before battle. For Ougi, select the donor and then the recipient directly on the field. A set trap stays hidden until activated.</li>
       </ol>
       <h3>Souls & battle</h3><p>Each attached soul adds one attack, up to the card’s cap. Kappa gains another one attack per soul. Possession effects require at least one soul; passive effects are always active on the field. Release effects spend one attached soul.</p>
       <p>The weaker yokai is destroyed, and its controller takes the attack difference as damage. Ties destroy both without damage. A direct attack deals the attacker’s attack. Destroyed cards go to their original owner’s graveyard; all their souls return to the shared pool.</p>
@@ -157,7 +157,7 @@ export function App() {
   let replayCount: number | undefined;
   try { const count = JSON.parse(replayText).actions?.length; if (Number.isSafeInteger(count) && count >= 0) replayCount = count; } catch { /* The importer reports invalid files on submission. */ }
   const [replayError, setReplayError] = useState<string>();
-  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command?: GameCommand; geometry: Geometry }>();
+  const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command?: GameCommand; geometry: Geometry; delay: number }>();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [inspectionId, setInspectionId] = useState<string>();
   const rail = useMediaQuery('(min-width: 1280px) and (min-height: 650px)');
@@ -209,8 +209,14 @@ export function App() {
   };
   const present = (before: SessionSnapshot, next: SessionSnapshot, command?: GameCommand, geometry = captureGeometry()) => {
     if (next.revision <= before.revision) { acceptPlayback(before); return; }
-    if (!transitionEvents(before.view, next.view, command).length) acceptPlayback(next);
-    else setPlayback({ before, next, command, geometry });
+    const battle = next.battleView && next.battleView.history.length > before.view.history.length ? next.battleView : undefined;
+    if (!transitionEvents(before.view, next.view, command, battle).length) acceptPlayback(next);
+    else {
+      const sameField = battle && before.view.players.every((player, seat) => player.field.length === battle.players[seat].field.length && player.field.every(card => battle.players[seat].field.some(other => other.id === card.id)));
+      const delay = sameField && before.view.players.some(player => player.field.some(card => battle.players[player.id].field.find(other => other.id === card.id)?.souls !== card.souls)) ? 1200 : 0;
+      if (delay && battle) { setSnapshot({ ...before, view: battle }); setDraft(emptyDraft()); }
+      setPlayback({ before, next, command, geometry, delay });
+    }
   };
   useEffect(() => {
     if (!onlineActive) return;
@@ -322,11 +328,11 @@ export function App() {
     </header>
     {errorBanner}
     {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={online.rooms()} busy={busy} onRules={() => setRules(true)} /> : <>
-      {!rail && !onlineMatch && <div className="match-status" role="status"><TurnSummary view={view} openHands={snapshot.openHands} /></div>}
-      {onlineMatch && <section className={`online-status ${!view.result && !onlineMatch.waitingForOpponent && view.turnPlayer === onlineMatch.viewer ? 'your-turn' : ''}`} aria-label="Online table" role="status">
+      {!rail && <div className="sr-only" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div>}
+      {onlineMatch && (pendingRetry || onlineMatch.waitingForOpponent || view.result) && <section className="online-status" aria-label="Online table" role="status">
         {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
         {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
-          : <><TurnSummary view={view} viewer={onlineMatch.viewer} openHands={false} />{view.result && <span>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Finished game · replay export finalizes the result'}</span>}</>}
+          : view.result && <><TurnSummary view={view} viewer={onlineMatch.viewer} openHands={false} /><span>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Finished game · replay export finalizes the result'}</span></>}
       </section>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
       <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={actionBlocked} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
@@ -342,7 +348,7 @@ export function App() {
       {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
       </main>
     </>}
-    {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command)} geometry={playback.geometry} onComplete={finishPlayback} />}
+    {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command, playback.next.battleView)} geometry={playback.geometry} delay={playback.delay} onComplete={finishPlayback} />}
     {menu && snapshot && <Modal title="Table menu" onClose={() => setMenu(false)}><div className="phone-menu-actions">
       <button type="button" className="secondary" onClick={() => { setMenu(false); setRules(true); }}>Rules & cards</button><button type="button" className="secondary" onClick={() => { setMenu(false); setHistory(true); }}>Public history</button>
       {!onlineMatch && <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>}

@@ -1,4 +1,4 @@
-import { applyCommand, createGame } from '../game/engine';
+import { applyCommand, createGame, previewBattle } from '../game/engine';
 import { viewForPlayer } from '../game/views';
 import type { GameCommand, GameState, PlayerId } from '../game/types';
 import type { OnlineAction, OnlineSnapshot } from './protocol';
@@ -87,7 +87,9 @@ function canUndo(room: Room, actor: PlayerId): boolean {
   return !room.finalized && !!window && window.player === actor && room.actions.length > window.floor;
 }
 function snapshot(room: Room, viewer: PlayerId): OnlineSnapshot {
-  return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), viewer, finalized: !!room.finalized,
+  const checkpoint = room.checkpoints.at(-1), action = room.audit.at(-1);
+  const battle = checkpoint && action?.kind === 'command' ? previewBattle({ ...checkpoint, history: room.state.history.slice(0, checkpoint.historyLength) }, action.command) : undefined;
+  return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), battleView: battle && viewForPlayer(battle, viewer), viewer, finalized: !!room.finalized,
     openHands: false, canUndo: canUndo(room, viewer), waitingForOpponent: room.tokenHashes[1] === null,
     undoRequestedBy: room.undoRequestedBy, recentHistory: room.state.history.slice(room.checkpoints.at(-1)?.historyLength ?? 0) };
 }

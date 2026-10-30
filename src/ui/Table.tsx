@@ -71,14 +71,14 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
   }
 
   function hand(player: PlayerView, top: boolean) {
-    const active = !view.result && player.id === view.turnPlayer;
+    const active = !view.result && player.id === view.decisionPlayer;
     const owner = <>
-      {active && <span className="seat-turn">Turn</span>}
+      {active && <span className="seat-turn">{view.phase === 'trap' ? 'Trap' : view.phase === 'effect' ? 'Effect' : view.phase === 'turnEnd' ? 'End turn' : 'Playing'}</span>}
       <strong title={player.name}>{player.name}</strong>
       <span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b></span>
       {top && player.hand && <span className="hand-expand-hint" aria-hidden="true">{expandedHand ? '⌃' : '⌄'}</span>}
     </>;
-    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''} ${active ? 'turn-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
+    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''} ${active ? 'side-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
       {top && player.hand ? <button type="button" className="seat-summary seat-summary-toggle" onClick={() => setExpandedHand(value => !value)} aria-expanded={expandedHand} aria-label={`${expandedHand ? 'Compact' : 'Expand'} ${player.name}’s hand`} aria-description={`${player.health} health; ${player.handCount} cards`}>{owner}</button> : <div className="seat-summary">{owner}{!top && turnControls}</div>}
       <HandTrack key={player.id} player={player} openHands={openHands}>
         {player.hand ? player.hand.length ? player.hand.map(card => cardButton(card, true)) : <span className="empty-hand">No cards in hand</span> : Array.from({ length: player.handCount }, (_, index) => <span className="hand-back" key={index} aria-hidden="true"><img src={cardBack(player.id)} alt="" draggable={false} /></span>)}
@@ -93,7 +93,7 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
     const selectedTrap = chosenTrap || (visibleTrap(trap) && selectedId === trap.id);
     const topDiscard = player.graveyard.at(-1);
     const trapContents = <>{trap ? <img src={visibleTrap(trap) ? cardImage(trap) : cardBack(player.id)} alt="" draggable={false} /> : <span className="empty-trap-card" aria-hidden="true">×</span>}<span className="pile-caption">Trap</span></>;
-    return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'}`} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s play area`}>
+    return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s play area`}>
       <div className="field" data-field-seat={player.id} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s yokai`}>{[0, 1, 2].map(index => player.field[index] ? cardButton(player.field[index]) : <div key={`empty-${index}`} className="empty-slot" aria-label="Empty yokai position" />)}</div>
       <div className="rear-piles">
         <div className="table-deck" data-deck-seat={player.id} aria-label={`${player.name}’s deck, ${player.deckCount} cards`}><Pile image={cardBack(player.id)} count={player.deckCount} /><span className="pile-caption">Deck</span></div>
