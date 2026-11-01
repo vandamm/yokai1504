@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 const feedback = fileURLToPath(new URL('./feedback.json', import.meta.url));
-const choices = ['a', 'b', 'c'];
+const choices = ['a', 'b', 'c', 'd'];
 const actors = ['mine', 'opponent'];
 const scenes = ['main', 'play', 'attack', 'soul', 'trap', 'effect', 'return'];
 let writes = Promise.resolve();

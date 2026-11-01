@@ -2,6 +2,7 @@
 @import './paper.css';
 @import './lacquer.css';
 @import './graphic.css';
+@import './physical.css';
 
 html,body,#root { height:100%; margin:0; overflow:hidden; }
 .device-shell { height:100dvh; }

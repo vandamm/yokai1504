@@ -1,6 +1,6 @@
 const $ = selector => document.querySelector(selector);
 const board = $('#board'), panel = $('#comments-panel'), composer = $('#composer');
-const options = { a: 'Бумага и тушь', b: 'Ночной лак', c: 'Графический коврик' };
+const options = { a: 'Бумага и тушь', b: 'Ночной лак', c: 'Графический коврик', d: 'Настоящий стол' };
 const state = { option: 'a', actor: 'mine', scene: 'main', device: innerWidth < 700 ? 'phone' : 'desktop', tooltip: false, commentMode: false, replay: 0, motion: '', reduced: false };
 const requestedOption=new URLSearchParams(location.search).get('option');
 if(options[requestedOption])state.option=requestedOption;
@@ -87,10 +87,12 @@ board.addEventListener('load', send); window.addEventListener('resize', sizeFram
 const directions = {
  a: ['Бумага и тушь', 'Светлый бумажный стол, индиго и волны Ink tide. Карты ощущаются настоящими предметами: лёгкие тени, мягкий свет и спокойная типографика.', 'Самый тихий вариант: близок к физической настольной игре.', 'Текстуру нужно держать слабой, чтобы она не спорила с рисунками карт.'],
  b: ['Ночной лак', 'Глубокий сливовый лак, тёплая латунь и светлые числовые отметки. Белые края карт заметнее на тёмной поверхности.', 'Самая насыщенная атмосфера: вечерний игровой стол.', 'Тёмная тема требует отдельной проверки при ярком освещении телефона.'],
+ d: ['Настоящий стол', 'Матовая белая поверхность, бирюзовый и охристый картон, стопки карт и белые жетоны душ. На десктопе здоровье показано дорожками с овальными маркерами, как на фотографиях игры.', 'Узнаваемые физические компоненты вместо декоративной темы. Минимум цифровых элементов управления.', 'На телефоне дорожки сжаты в плитки с крупным числом. Карты соперника оставлены читаемыми с вашей стороны.'],
  c: ['Графический коврик', 'Плоский светлый коврик, кобальт, чёткие смещённые тени и контрастные сигнальные детали. Больше современного печатного дизайна.', 'Самое заметное состояние и самое смелое оформление.', 'Жёсткие акценты могут казаться менее уютными, чем бумага или лак.']
 };
 function renderDirection() {
  const [title,description,strength,tradeoff] = directions[state.option];
+ $('#direction-sources').hidden=state.option!=='d';
  $('#direction-title').textContent=title; $('#direction-description').textContent=description;
  $('#direction-strength').textContent=strength; $('#direction-tradeoff').textContent=tradeoff;
  $('#reduce-motion').setAttribute('aria-pressed',String(state.reduced));
