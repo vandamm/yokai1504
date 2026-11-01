@@ -4,7 +4,7 @@
   --surface:#fffefb;
   --table:#f4f3ef;
   --line:#b8c3bd;
-  --accent:#326c64;
+  --accent:#317cb5;
   --enemy:#a64d51;
   --focus:#246d80;
   --shadow:0 3px 4px #343a3425,0 1px 1px #343a3430;
@@ -13,8 +13,12 @@
   background:radial-gradient(ellipse at 45% 40%,#fffefb,#f1f0ec 85%);
 }
 .game.theme-d.acting-opponent { --accent:var(--enemy); }
-.game.theme-d .atmosphere { background:#77ada51a; mask-image:linear-gradient(transparent,#000 100%); }
-.game.theme-d.acting-opponent .atmosphere { background:#b66f7614; mask-image:linear-gradient(to top,transparent,#000 100%); }
+.game.theme-d::before,.game.theme-d .atmosphere::before { content:''; position:absolute; inset:0; background:#8e9995; mask:url('./waves.svg') 0 0 / 96px 48px repeat; opacity:.16; pointer-events:none; }
+.game.theme-d::before { z-index:0; }
+.game.theme-d .atmosphere,.game.theme-d.acting-opponent .atmosphere { inset:0; background:none; }
+.game.theme-d .atmosphere { mask-image:linear-gradient(to bottom,transparent 50%,#000 90%); }
+.game.theme-d.acting-opponent .atmosphere { mask-image:linear-gradient(to top,transparent 50%,#000 90%); }
+.game.theme-d .atmosphere::before { background:var(--accent); opacity:.62; }
 .game.theme-d .table-divider { background:#a4b9b34a; box-shadow:none; }
 .game.theme-d .table-card .card-face { box-shadow:var(--shadow); border-radius:4px; }
 .game.theme-d .table-card.target .card-face { box-shadow:0 4px 0 -1px var(--accent),var(--shadow); }
@@ -45,16 +49,12 @@
 .game.theme-d .inspection-copy .rule { color:var(--ink); }
 .game.theme-d :focus-visible { outline-color:var(--focus); }
 
-.game.theme-d .seat-status .health-near,.game.theme-d .seat-status .health-far { width:90px; height:44px; }
-.game.theme-d .physical-health { position:relative; width:90px; height:44px; }
-.game.theme-d .health-strip { --strip:#a2cfca; --strip-ink:#244e49; --counter:#bed4c6; position:relative; width:100%; height:31px; border:1px solid #577d6d3d; border-radius:2px; color:var(--strip-ink); background:var(--strip); box-shadow:0 2px 0 #c1bfb4,0 3px 4px #343a3420; }
-.game.theme-d .health-strip.ochre { --strip:#bd957c; --strip-ink:#422d25; --counter:#cbae92; }
-.game.theme-d .health-ticks { display:none; }
-.game.theme-d .health-counter { position:absolute; display:grid; place-items:center; width:47px; height:35px; transform:translate(-50%,-50%); background:var(--counter); border:1px solid #766f514a; border-radius:50%; box-shadow:0 2px 0 #968d75,0 3px 4px #343a3435,inset 0 1px 0 #fff9; }
-.phone .game.theme-d .health-counter { left:50%!important; top:50%!important; }
-.game.theme-d .health-counter strong { display:block; width:29px; padding:0 2px; border:1px solid #70674c45; background:var(--strip); color:var(--strip-ink); box-shadow:inset 0 1px 2px #343a3425; font-size:23px; font-weight:700; line-height:25px; font-variant-numeric:tabular-nums; text-align:center; }
-.game.theme-d .physical-health .player-caption { top:35px; color:var(--muted); font-size:11px; line-height:12px; }
-.game.theme-d .physical-health .action-pips { left:calc(100% + 8px); top:11px; gap:4px; }
+.game.theme-d .seat-status .health-near,.game.theme-d .seat-status .health-far { width:64px; height:48px; }
+.game.theme-d .life { width:64px; height:48px; }
+.game.theme-d .life .health-value { width:64px; color:#b23544; font-size:32px; line-height:34px; font-weight:700; text-shadow:0 1px var(--surface),0 0 4px var(--surface); }
+.game.theme-d .heart { color:inherit; }
+.game.theme-d .heart svg { width:15px; height:18px; }
+.game.theme-d .life .player-caption { top:35px; color:var(--muted); font-size:11px; line-height:13px; }
 .game.theme-d .health-near .player-caption { color:#2b5d54; font-weight:650; }
 .game.theme-d.acting-opponent .health-far .player-caption { color:var(--enemy); font-weight:650; }
 
@@ -90,23 +90,17 @@
  .phone .game.theme-d .seat-near { bottom:clamp(78px,calc(50% - 216px),88px); }
 }
 
-.desktop .game.theme-d .zone.enemy { top:124px; }
-.desktop .game.theme-d .zone.yours { bottom:124px; }
+.desktop .game.theme-d .zone.enemy { top:164px; }
+.desktop .game.theme-d .zone.yours { bottom:164px; }
 .desktop .game.theme-d .seat-piles { width:182px; height:124px; gap:14px; }
 .desktop .game.theme-d .deck-pile,.desktop .game.theme-d .grave-pile,.desktop .game.theme-d .pile-art,
 .desktop .game.theme-d .seat-trap,.desktop .game.theme-d .trap-art { width:84px; height:124px; }
 .desktop .game.theme-d .seat-status { position:static; }
-.desktop .game.theme-d .seat-status .health-near,.desktop .game.theme-d .seat-status .health-far { left:50%; bottom:auto; width:300px; height:38px; transform:translateX(-50%); }
-.desktop .game.theme-d .seat-status .health-far { top:calc(50% - 48px); }
-.desktop .game.theme-d .seat-status .health-near { top:calc(50% + 12px); }
-.desktop .game.theme-d .physical-health { width:300px; height:38px; }
-.desktop .game.theme-d .health-strip { height:38px; }
-.desktop .game.theme-d .health-ticks { position:absolute; inset:0; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(2,1fr); }
-.desktop .game.theme-d .health-tick { display:grid; align-items:center; justify-content:center; font-size:11px; line-height:1; font-variant-numeric:tabular-nums; border-right:1px solid #fff2; }
-.desktop .game.theme-d .health-counter { width:45px; height:28px; }
-.desktop .game.theme-d .health-counter strong { width:26px; font-size:17px; line-height:19px; }
-.desktop .game.theme-d .physical-health .player-caption { left:-14px; top:50%; transform:translate(-100%,-50%); font-size:12px; line-height:15px; }
-.desktop .game.theme-d .physical-health .action-pips { left:calc(100% + 20px); top:15px; }
+.desktop .game.theme-d .seat-status .health-far { left:50%; top:114px; bottom:auto; transform:translateX(-50%); }
+.desktop .game.theme-d .seat-status .health-near { left:24px; top:auto; bottom:20px; width:80px; height:56px; transform:none; }
+.desktop .game.theme-d .health-near .life { width:80px; height:56px; }
+.desktop .game.theme-d .health-near .health-value { width:80px; font-size:36px; line-height:40px; }
+.desktop .game.theme-d .health-near .player-caption { top:42px; font-size:12px; line-height:14px; }
 .desktop .game.theme-d .seat-far .seat-piles,.desktop .game.theme-d .seat-far .seat-trap { top:114px; transform:none; }
 .desktop .game.theme-d .seat-near .seat-piles,.desktop .game.theme-d .seat-near .seat-trap { top:auto; bottom:100px; transform:none; }
 .desktop .game.theme-d .seat-near .seat-trap { bottom:96px; }
