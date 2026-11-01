@@ -7,11 +7,11 @@ import { CardFace } from '../../../src/ui/CardFace';
 import { publicAsset } from '../../../src/ui/assets';
 import './board.css';
 
-type Scene='main'|'play'|'attack'|'soul'|'trap'|'effect'|'return';
+type Scene='main'|'play'|'attack'|'soul'|'trap'|'effect'|'return'|'spent';
 interface Comment {id:string;option:string;actor:string;scene:Scene;target:string;region:string;x:number;y:number;}
 interface Preview {option:'a'|'b'|'c'|'d';actor:'mine'|'opponent';scene:Scene;tooltip:boolean;commentMode:boolean;comments:Comment[];replay:number;reduced:boolean;selectedComment?:string;}
 const params=new URLSearchParams(location.search);
-const initial:Preview={option:['a','b','c','d'].includes(params.get('option')??'')?params.get('option') as Preview['option']:'a',actor:params.get('actor')==='opponent'?'opponent':'mine',scene:['main','play','attack','soul','trap','effect','return'].includes(params.get('scene')??'')?params.get('scene') as Scene:'main',tooltip:false,commentMode:false,comments:[],replay:0,reduced:false};
+const initial:Preview={option:['a','b','c','d'].includes(params.get('option')??'')?params.get('option') as Preview['option']:'a',actor:params.get('actor')==='opponent'?'opponent':'mine',scene:['main','play','attack','soul','trap','effect','return','spent'].includes(params.get('scene')??'')?params.get('scene') as Scene:'main',tooltip:false,commentMode:false,comments:[],replay:0,reduced:false};
 const send=(message:object)=>parent.postMessage(message,location.origin);
 function make(id:string,def:CardDefId,owner:PlayerId,zone:VisibleCard['zone']='field',souls=0):VisibleCard{return{id,def,owner,controller:owner,zone,souls,attack:CARDS[def].atk+souls*(def==='kappa'?2:1),definition:CARDS[def],summonedTurn:1};}
 const own=[make('yuki','yuki-onna',0,'field',1),make('neko','nekomata',0),make('zashiki','zashiki-warashi',0)];
@@ -27,6 +27,7 @@ function App(){
  const [preview,setPreview]=useState(initial),[wide,setWide]=useState(innerWidth>=801),[inspected,setInspected]=useState<VisibleCard>(),[hovered,setHovered]=useState<VisibleCard>(),[shift,setShift]=useState(false),[history,setHistory]=useState(false),[hiddenTrap,setHiddenTrap]=useState(false),[donor,setDonor]=useState<string>(),[recipient,setRecipient]=useState<string>(),[soulAdded,setSoulAdded]=useState(false);
  const [pins,setPins]=useState<{comment:Comment;number:number;x:number;y:number}[]>([]),root=useRef<HTMLDivElement>(null);
  const mine=preview.actor==='mine',response=['trap','effect'].includes(preview.scene),effect=preview.scene==='effect',physical=preview.option==='d';
+ const actionsLeft=preview.scene==='spent'?0:soulAdded?1:2;
  const shown=preview.tooltip?own[0]:inspected??(shift?hovered:undefined);
  const modal=!!(preview.tooltip||inspected||history||hiddenTrap);
  function command(message:{type:string;[key:string]:unknown}){if(message.type==='review:actor')setPreview(p=>({...p,actor:message.actor as Preview['actor'],scene:'main'}));if(message.type==='review:scene'){setSoulAdded(false);setPreview(p=>({...p,scene:message.scene as Scene}));}if(message.type==='review:reduced')setPreview(p=>({...p,reduced:!!message.reduced}));send(message);}
@@ -42,7 +43,7 @@ function App(){
  }
  function health(near=false){
   const caption=near?(mine?response?'Your response':'Your turn':'Waiting'):(mine?'Poli':'Poli’s turn');
-  const pips=near&&mine&&!response&&<span className="action-pips action-dots" aria-label={`${soulAdded?1:2} actions left`}><i/><i className={soulAdded?'used':''}/></span>;
+  const pips=near&&mine&&!response&&<span className="action-pips action-dots" aria-label={`${actionsLeft} actions left`}><i className={actionsLeft===0?'used':''}/><i className={actionsLeft<2?'used':''}/></span>;
   const hp=physical&&!near?12:15;
   return <div className={near?'health-near':'health-far'} data-review={near?'health-near':'health-far'} data-region={near?'Your health and actions':'Opponent health'} role="group" aria-label={`${near?'Your':'Poli’s'} health, ${hp}`}><div className="life"><strong className="health-value"><span className="heart"><Icon name="heart"/></span>{hp}</strong><span className="player-caption">{caption}</span>{pips}</div></div>;
  }
@@ -60,8 +61,8 @@ function App(){
   <div className="zone yours" data-review="your-field" data-region="Your field">{own.map(c=><div className={`card-position ${preview.scene==='attack'&&c.id==='yuki'?'origin-empty':''}`} key={c.id}>{card(c)}{preview.scene==='soul'&&!soulAdded&&c.id==='yuki'&&<button className="soul-add" aria-label="Add a soul to Yuki-onna" onClick={()=>setSoulAdded(true)}>+ <Soul/></button>}</div>)}</div>
   {seat(false)}{seat(true)}
   <div className="hand-objects" data-review="hand" data-region="Your fan" aria-label="Your hand">{hand.filter(c=>!(preview.scene==='play'&&c.id==='sake')).map(c=><div key={c.id} className="card-position">{card(c)}</div>)}</div>
-  <div className="divider-supply" data-review="supply" data-region="Supply"><button className="supply" aria-label={`Supply, ${10-(soulAdded?1:0)} souls`} onClick={()=>command({type:'review:scene',scene:'soul'})}><strong>{10-(soulAdded?1:0)}</strong>{physical?<span className="reserve-tokens" aria-hidden="true">{[0,1,2].map(i=><span key={i} className="physical-token"><Soul/></span>)}</span>:<Soul/>}</button></div>
-  <div className="turn-controls divider-utilities" data-review="turn-controls" data-region="Undo and End turn">{!response&&<button className="undo undo-icon" aria-label="Undo preview" onClick={()=>command({type:'review:actor',actor:'mine'})}><Icon name="undo"/></button>}<button className="end-turn wbutton" disabled={!mine||response} onClick={()=>command({type:'review:actor',actor:'opponent'})}>End turn</button></div>
+  <div className="divider-supply" data-review="supply" data-region="Supply"><button className="supply" disabled={actionsLeft===0} aria-label={`Supply, ${10-(soulAdded?1:0)} souls`} onClick={()=>command({type:'review:scene',scene:'soul'})}><strong>{10-(soulAdded?1:0)}</strong>{physical?<span className="reserve-tokens" aria-hidden="true">{[0,1,2].map(i=><span key={i} className="physical-token"><Soul/></span>)}</span>:<Soul/>}</button></div>
+  <div className="turn-controls divider-utilities" data-review="turn-controls" data-region="Undo and End turn">{!response&&<button className="undo undo-icon" aria-label="Undo preview" onClick={()=>command({type:'review:actor',actor:'mine'})}><Icon name="undo"/></button>}<button className={`end-turn wbutton ${mine&&!response&&actionsLeft===0?'ready':''}`} disabled={!mine||response} onClick={()=>command({type:'review:actor',actor:'opponent'})}>End turn</button></div>
   {preview.scene==='play'&&<><div className="drop-field" data-review="play-destination" data-region="Play destination"><span>Play</span></div><div className="drop-trap" data-review="trap-destination" data-region="Set trap destination">Set trap</div></>}
   {['play','attack'].includes(preview.scene)&&<div className="ghost-card" data-review="dragged-card" data-region="Lifted card">{card(preview.scene==='play'?hand[0]:own[0],'dragging')}</div>}
   {arrow&&<svg className="target-path" viewBox={`0 0 ${wide?1120:360} ${wide?660:720}`} aria-hidden="true"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z"/></marker></defs><path d={arrow} markerEnd="url(#arrowhead)"/></svg>}

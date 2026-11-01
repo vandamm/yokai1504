@@ -4,7 +4,7 @@
   --surface:#fffefb;
   --table:#f4f3ef;
   --line:#b8c3bd;
-  --accent:#317cb5;
+  --accent:#3d805a;
   --enemy:#a64d51;
   --focus:#246d80;
   --shadow:0 3px 4px #343a3425,0 1px 1px #343a3430;
@@ -13,7 +13,7 @@
   background:radial-gradient(ellipse at 45% 40%,#fffefb,#f1f0ec 85%);
 }
 .game.theme-d.acting-opponent { --accent:var(--enemy); }
-.game.theme-d::before,.game.theme-d .atmosphere::before { content:''; position:absolute; inset:0; background:#8e9995; mask:url('./waves.svg') 0 0 / 96px 48px repeat; opacity:.16; pointer-events:none; }
+.game.theme-d::before,.game.theme-d .atmosphere::before { content:''; position:absolute; inset:0; background:#8e9995; mask:url('./waves.svg') 0 0 / 72px 36px repeat; opacity:.16; pointer-events:none; }
 .game.theme-d::before { z-index:0; }
 .game.theme-d .atmosphere,.game.theme-d.acting-opponent .atmosphere { inset:0; background:none; }
 .game.theme-d .atmosphere { mask-image:linear-gradient(to bottom,transparent 50%,#000 90%); }
@@ -32,9 +32,14 @@
 .game.theme-d .seat-status .pile-caption { display:none; }
 .game.theme-d .pile-count { border-color:#c4cbc5; background:var(--surface); box-shadow:0 1px 2px #343a3415; }
 .game.theme-d .supply { min-width:62px; gap:5px; padding:3px; color:var(--ink); background:var(--table); border:0; border-radius:3px; }
-.game.theme-d .turn-controls .undo { color:var(--muted); background:var(--table); }
-.game.theme-d .turn-controls .end-turn { color:#fffefb; background:#326c64; border-color:#2b6058; border-radius:4px; box-shadow:0 2px 0 #224d46,0 3px 5px #343a3422; font-weight:650; }
-.game.theme-d .turn-controls .end-turn:disabled { color:#64716b; background:#e5e9e3; border-color:#bdc9c0; box-shadow:0 1px 0 #c7d0c9; }
+.game.theme-d .turn-controls .undo { color:var(--muted); background:transparent; border-radius:50%; }
+.game.theme-d .turn-controls .undo svg { width:16px; height:16px; opacity:.85; }
+.game.theme-d .turn-controls .undo:hover { background:#e7ece480; }
+.game.theme-d .turn-controls .end-turn { color:#344d3c; background:#eef1e9; border-color:#9eaea2; border-radius:4px; box-shadow:none; font-weight:600; }
+.game.theme-d .turn-controls .end-turn:not(:disabled):hover { background:#e3eadd; }
+.game.theme-d .turn-controls .end-turn.ready { color:#fffefb; background:var(--accent); border-color:#2b6343; box-shadow:0 1px 0 #245738; }
+.game.theme-d .turn-controls .end-turn.ready:not(:disabled):hover { background:#326f4c; }
+.game.theme-d .turn-controls .end-turn:disabled { color:#798278; background:#f2f3ee; border-color:#c9d0c5; box-shadow:none; }
 .game.theme-d .menu { color:var(--muted); background:transparent; border-color:transparent; }
 .game.theme-d .action-pips i { width:8px; height:8px; background:var(--accent); border:1px solid #2f6057; box-shadow:0 1px 1px #343a3420; }
 .game.theme-d .drop-field { bottom:0; left:0; right:0; color:var(--accent); background:#7eb9b520; border:0; }
@@ -55,7 +60,7 @@
 .game.theme-d .heart { color:inherit; }
 .game.theme-d .heart svg { width:15px; height:18px; }
 .game.theme-d .life .player-caption { top:35px; color:var(--muted); font-size:11px; line-height:13px; }
-.game.theme-d .health-near .player-caption { color:#2b5d54; font-weight:650; }
+.game.theme-d .health-near .player-caption { width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .game.theme-d.acting-opponent .health-far .player-caption { color:var(--enemy); font-weight:650; }
 
 .game.theme-d .table-card .soul-slot.filled { opacity:0; }

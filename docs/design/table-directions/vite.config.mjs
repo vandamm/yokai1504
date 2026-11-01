@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 const feedback = fileURLToPath(new URL('./feedback.json', import.meta.url));
 const choices = ['a', 'b', 'c', 'd'];
 const actors = ['mine', 'opponent'];
-const scenes = ['main', 'play', 'attack', 'soul', 'trap', 'effect', 'return'];
+const scenes = ['main', 'play', 'attack', 'soul', 'trap', 'effect', 'return', 'spent'];
 let writes = Promise.resolve();
 async function read() {
   try { return JSON.parse(await readFile(feedback, 'utf8')); }

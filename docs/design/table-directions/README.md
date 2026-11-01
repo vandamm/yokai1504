@@ -7,7 +7,7 @@ Visual mockups based on `../minimal-table/`. Production UI, game rules and onlin
 | A — Бумага и тушь | Light paper fibers, indigo, soft physical shadows | Ink tide fades toward the divider; quiet rounded controls |
 | B — Ночной лак | Deep plum lacquer, ivory serif health, brass | Warm metal End turn, pink-red opponent state, light inspection panels |
 | C — Графический коврик | Flat periwinkle, cobalt, bold sans serif, offset shadows | Lime signal details, square controls, dotted active surface |
-| D — Настоящий стол | Light tabletop with waves, teal/ochre card stacks | Physical soul counters, red heart health and blue/red active waves |
+| D — Настоящий стол | Light tabletop with waves, teal/ochre card stacks | Physical soul counters, red heart health and green/red active waves |
 
 A–C use the same geometry, real card art and the existing `CardFace` component. Each side holds three yokai. Fan hands sit at opposite edges. Supply is at the left end of the divider; Undo and End turn are at the right. Desktop piles are larger, with your health and actions at bottom left; phone health stays between field and hand. The active side fades toward the center and only animates on entry. Opponent state is red and also identified in text.
 
@@ -22,7 +22,7 @@ References inspected on BoardGameGeek:
 
 The photos show a white tabletop, teal and ochre card backs, two cardboard health strips numbered 0–15 in a two-row path, oval markers with a rectangular window, and small white soul counters with yellow flames. Photos are references, not bundled UI assets. Existing original card/soul artwork is reused; token material, stacks, waves and shadows are recreated in HTML/SVG/CSS.
 
-Health uses a red heart and red number: your health at bottom left on desktop, opponent health between hand and field, and both centered between hand and field on phone. Desktop retains the larger 84×124 card stacks/traps. Neutral waves cover the entire table; your active half has blue waves and the opponent’s active half has red waves, fading toward the divider. One full-canvas SVG mask keeps neutral and colored waves aligned at every height. Only the colored layer animates on entry. Opponent field cards face the viewer, fan hands remain at the edges, and Supply/Undo/End turn keep their established locations. These are deliberate digital adaptations of the physical layout. D illustrates an ongoing game with your health at 15 and opponent health at 12; it is still a fixture, not a running game.
+Health uses a red heart and red number: your health at bottom left on desktop, opponent health between hand and field, and both centered between hand and field on phone. Desktop retains the larger 84×124 card stacks/traps. Neutral waves cover the entire table; your active half has green waves and the opponent’s active half has red waves, fading toward the divider. One full-canvas SVG mask keeps neutral and colored waves aligned at every height. Only the colored layer animates on entry. The wave tile is 72×36px. Your turn caption is visually hidden but remains available to assistive technology. Undo has a 16px glyph in a transparent circular 44px touch target. End turn is subdued with actions remaining and becomes green after both actions are spent; choose “Действия закончились” to review this state. Opponent field cards face the viewer, fan hands remain at the edges, and Supply/Undo/End turn keep their established locations. These are deliberate digital adaptations of the physical layout. D illustrates an ongoing game with your health at 15 and opponent health at 12; it is still a fixture, not a running game.
 
 ## Run
 
@@ -35,14 +35,15 @@ npx vite --config docs/design/table-directions/vite.config.mjs
 - Review and comments: <http://127.0.0.1:5178/docs/design/table-directions/>
 - Comparison: <http://127.0.0.1:5178/docs/design/table-directions/compare.html>
 
-The review switches between 360×720 phone and 1120×660 desktop canvases, your/opponent turn, and seven illustrative situations. Tap a card for a two-column inspection, or hold Shift while hovering. The soul button and Ougi donor/recipient selection update only the fixture. Scene selection illustrates dragging; it does not run the game engine. On phones, the trap response temporarily uses the hand area, following the source wireframe.
+The review switches between 360×720 phone and 1120×660 desktop canvases, your/opponent turn, and eight illustrative situations. Tap a card for a two-column inspection, or hold Shift while hovering. The soul button and Ougi donor/recipient selection update only the fixture. Scene selection illustrates dragging; it does not run the game engine. On phones, the trap response temporarily uses the hand area, following the source wireframe.
 
 Use “Комментировать”, then click a part of the table to attach feedback. Comments and preference are stored locally in ignored `feedback.json`, using the local Vite endpoint. This server is intended only for local design review. Choosing a direction does not change the game.
 
 ## Verification
 
 - D red health and neutral/colored wave layers checked at 375×667, 360×600, 360×560, 390×844, 1280×720 and 1440×900: six visible field cards, no canvas overflow or overlap between field cards and health/turn controls. Short phone layouts reduce card and fan sizes. Neutral and colored wave masks share the same origin and tile size. Opponent waves are red; reduced motion disables the entry animation.
-- D's 14 phone/desktop situation views were checked, including temporary buttons/prompt placement. The desktop Ougi cue fits between the field rows. Soul addition and Ougi transfer update the physical token count and live attack. Inspection and D comment creation/pin/deletion were checked; no test comment remains.
+- D's 16 phone/desktop situation views were checked, including temporary buttons/prompt placement. The desktop Ougi cue fits between the field rows. Soul addition and Ougi transfer update the physical token count and live attack. Inspection and D comment creation/pin/deletion were checked; no test comment remains.
+- Checked End turn at 2/1/0 actions, both empty action pips at 0, disabled opponent/response states, and Undo restoring the preview. A comment in the new spent scene was saved and deleted. Normal/ready button text contrast is 8.09/4.70; Undo retains a 44px target with a 16px glyph.
 - A–C: browser checked all 42 theme/device/situation combinations: six field cards, no canvas overflow, identical geometry between themes.
 - Visually inspected all three directions on phone and desktop, plus the trap prompt and two-column inspection. Lacquer inspection uses dark text on a light panel.
 - Checked soul addition (Yuki-onna 4→5 ATK, 1→2 souls, Supply 10→9, actions 2→1) and Ougi transfer to Kappa (4 ATK, 1 soul).

@@ -74,7 +74,7 @@ window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== board.contentWindow) return;
   const message = event.data;
   if (message?.type === 'review:ready') send();
-  if (message?.type === 'review:scene' && ['main', 'play', 'attack', 'soul', 'trap', 'effect', 'return'].includes(message.scene)) { state.scene = message.scene; state.motion = ''; update(); }
+  if (message?.type === 'review:scene' && ['main', 'play', 'attack', 'soul', 'trap', 'effect', 'return', 'spent'].includes(message.scene)) { state.scene = message.scene; state.motion = ''; update(); }
   if (message?.type === 'review:actor' && ['mine', 'opponent'].includes(message.actor)) { state.actor = message.actor; state.scene='main'; state.motion = ''; update(); }
   if (message?.type === 'review:tooltip' && typeof message.show === 'boolean') { state.tooltip = message.show; update(); }
   if (message?.type === 'review:reduced' && typeof message.reduced === 'boolean') { state.reduced=message.reduced; update(); }
@@ -87,7 +87,7 @@ board.addEventListener('load', send); window.addEventListener('resize', sizeFram
 const directions = {
  a: ['Бумага и тушь', 'Светлый бумажный стол, индиго и волны Ink tide. Карты ощущаются настоящими предметами: лёгкие тени, мягкий свет и спокойная типографика.', 'Самый тихий вариант: близок к физической настольной игре.', 'Текстуру нужно держать слабой, чтобы она не спорила с рисунками карт.'],
  b: ['Ночной лак', 'Глубокий сливовый лак, тёплая латунь и светлые числовые отметки. Белые края карт заметнее на тёмной поверхности.', 'Самая насыщенная атмосфера: вечерний игровой стол.', 'Тёмная тема требует отдельной проверки при ярком освещении телефона.'],
- d: ['Настоящий стол', 'Стопки карт и белые жетоны душ на светлом столе с волновым узором. Здоровье — красная цифра с сердцем. Волны на активной половине синие в ваш ход и красные в ход соперника.', 'Узнаваемые физические компоненты вместо декоративной темы. Минимум цифровых элементов управления.', 'Цветные волны постепенно затухают к середине; подпись у здоровья также показывает, кто сейчас действует.'],
+ d: ['Настоящий стол', 'Стопки карт и белые жетоны душ на светлом столе с волновым узором. Здоровье — красная цифра с сердцем. Волны на активной половине зелёные в ваш ход и красные в ход соперника.', 'Узнаваемые физические компоненты вместо декоративной темы. Минимум цифровых элементов управления.', 'Мелкие волны затухают к середине. Undo остаётся незаметной, а «Конец хода» выделяется после последнего действия.'],
  c: ['Графический коврик', 'Плоский светлый коврик, кобальт, чёткие смещённые тени и контрастные сигнальные детали. Больше современного печатного дизайна.', 'Самое заметное состояние и самое смелое оформление.', 'Жёсткие акценты могут казаться менее уютными, чем бумага или лак.']
 };
 function renderDirection() {
