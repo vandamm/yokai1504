@@ -16,9 +16,9 @@ import type { SessionSnapshot } from '../session/local';
 import { createId } from '../session/id';
 import { Table, CardFace } from './Table';
 import { DecisionBar, TurnControls } from './DecisionBar';
-import { allVisible, allocationLimit, decisionCandidates, effectSource, emptyDraft, updateDraft } from './interaction';
+import { actionUnavailableReason, allVisible, allocationLimit, decisionCandidates, effectSource, emptyDraft, updateDraft } from './interaction';
 import type { DraftEvent } from './interaction';
-import { inspectionLabel, inspectionPosition } from './inspection';
+import { inspectionPosition } from './inspection';
 import { publicAsset } from './assets';
 import { PublicHistory } from './PublicHistory';
 
@@ -101,8 +101,8 @@ function useMediaQuery(query: string) {
   return enabled;
 }
 
-function Inspector({ definition, card, onClose }: { definition: CardDefinition; card?: VisibleCard; onClose?: () => void }) {
-  return <div className="inspector"><div className="inspector-heading"><div><span className="card-type">{definition.kind === 'yokai' ? `${definition.effectType} yokai` : 'Spell · can be set as a trap'}</span><h2>{definition.name}</h2><p lang="ja">{definition.japanese}</p></div>{onClose && <button type="button" className="icon-button" aria-label="Close card inspector" onClick={onClose}>×</button>}</div><img className="inspector-image" src={imagePath(definition.id)} alt={`${definition.name} official card illustration`} /><div className="inspector-rule">{definition.kind === 'yokai' && <div className="inspector-stats"><span><strong>{card?.attack ?? definition.atk}</strong> {card ? 'attack now' : 'base attack'}</span><span><strong>{card?.souls ?? 0}/{definition.cap}</strong> souls</span></div>}<p>{definition.text}</p>{definition.effectType === 'possession' && <p className="small muted">Active while this yokai has at least one soul.</p>}{definition.effectType === 'release' && <p className="small muted">Spend one attached soul during your main phase.</p>}{definition.id === 'kappa' && <p className="small muted">Total attack: 2 + twice its souls.</p>}</div></div>;
+function Inspector({ definition, onClose }: { definition: CardDefinition; onClose?: () => void }) {
+  return <div className="inspector"><img className="inspector-image" src={imagePath(definition.id)} alt={`${definition.name} official card illustration`} /><div className="inspector-copy"><div className="inspector-heading"><div><span className="card-type">{definition.kind === 'yokai' ? `${definition.effectType} yokai` : 'Spell · can be set as a trap'}</span><h2>{definition.name}</h2><p lang="ja">{definition.japanese}</p></div>{onClose && <button type="button" className="icon-button" aria-label="Close card inspector" onClick={onClose}>×</button>}</div><div className="inspector-rule"><p>{definition.text}</p>{definition.effectType === 'possession' && <p className="small muted">Active while this yokai has at least one soul.</p>}{definition.effectType === 'release' && <p className="small muted">Spend one attached soul during your main phase.</p>}</div></div></div>;
 }
 
 function GraveyardTarget({ card, selected, onInspect }: { card: VisibleCard; selected: boolean; onInspect: () => void }) {
@@ -160,7 +160,6 @@ export function App() {
   const [playback, setPlayback] = useState<{ before: SessionSnapshot; next: SessionSnapshot; command?: GameCommand; geometry: Geometry; delay: number }>();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [inspectionId, setInspectionId] = useState<string>();
-  const rail = useMediaQuery('(min-width: 1280px) and (min-height: 650px)');
   const desktop = useMediaQuery('(min-width: 900px)');
   const [shiftHeld, setShiftHeld] = useState(false);
   const [hovered, setHovered] = useState<{ id?: string; def?: CardDefId; left: number; right: number; top: number }>();
@@ -290,7 +289,7 @@ export function App() {
     const result = resolveEffectTarget(view, draft, id);
     if (result.command) void submit(result.command); else if (result.event) onDraft(result.event); else setNotice(result.reason ?? 'Choose a marked target.');
   };
-  const onCard = (card: VisibleCard) => { if (shiftHeld) return; if (!busyRef.current) { if (mayAct() && view?.phase === 'effect' && candidates.cards.some(target => target.id === card.id)) chooseTarget(card.id); else { setDraft(old => updateDraft(old, { type: 'select', id: card.id })); setInspectionId(card.id); } } };
+  const onCard = (card: VisibleCard) => { if (shiftHeld) return; if (!busyRef.current) { if (mayAct() && view?.phase === 'effect' && candidates.cards.some(target => target.id === card.id)) chooseTarget(card.id); else { setDraft(old => updateDraft(old, { type: 'select', id: card.id })); onDetails(card); } } };
   const onTrap = (seat: PlayerId) => { if (shiftHeld) return; if (view?.phase === 'effect' && candidates.hiddenTrapSeats.includes(seat)) { chooseTarget(`trap:${seat}`); return; } const trap = view?.players[seat].trap; if (trap && !('hidden' in trap)) onCard(trap); else setNotice('This trap is face down.'); };
   const drop = (sourceId: string, targetId: string) => {
     if (!view || busyRef.current || !mayAct()) return;
@@ -304,10 +303,9 @@ export function App() {
       if (count < allocationLimit(view, draft, card.id)) onDraft({ type: 'setAllocation', id: card.id, count: count + 1 });
     } else void submit({ type: 'evoke', cardId: card.id });
   };
-  const detailsContent = view && <>
-    <label className="inspect-picker">Inspect card<select aria-label="Inspect card" value={inspected?.id ?? ''} onChange={event => setInspectionId(event.target.value)}><option value="" disabled>Choose a visible card</option>{cards.map(card => <option key={card.id} value={card.id}>{inspectionLabel(view, card)}</option>)}</select></label>
-    {inspected ? <Inspector definition={inspected.definition} card={inspected} /> : <p className="muted">Select a card to read its effect.</p>}
-  </>;
+  const detailsContent = inspected ? <><Inspector definition={inspected.definition} />
+    {view && !actionBlocked && !actionUnavailableReason(view, inspected, 'release') && <button type="button" className="primary inspector-action" onClick={() => { setDetailsOpen(false); void submit({ type: 'release', cardId: inspected.id }); }}>Release a soul</button>}
+  </> : <p className="muted">Tap a visible card to read its effect.</p>;
   const hoveredCard = cards.find(card => card.id === hovered?.id);
   const hoveredDefinition = hovered?.def ? CARDS[hovered.def] : hoveredCard?.definition;
   const historyEntries = playback?.next.view.history ?? view?.history ?? [];
@@ -322,30 +320,31 @@ export function App() {
     if (!el || !id && !def) setHovered(undefined);
     else setHovered(old => { if (old?.id === id && old?.def === def) return old; const rect = el.getBoundingClientRect(); return { id, def, left: rect.left, right: rect.right, top: rect.top }; });
   }}>
-    <header className="app-header"><a className="wordmark" href="#" onClick={event => event.preventDefault()} aria-label="Yokai 1504">Yokai <small>1504</small></a>
-      {view && <span className="toolbar-supply" aria-label={`Supply: ${view.supply} souls`}><span>Supply</span><strong>{view.supply}</strong><img src={publicAsset('icons/soul.svg')} alt="" /></span>}
+    {!view && <header className="app-header"><a className="wordmark" href="#" onClick={event => event.preventDefault()} aria-label="Yokai 1504">Yokai <small>1504</small></a>
       <div className="header-tools"><button type="button" className="header-button" disabled={busy} onClick={() => snapshot ? setMenu(true) : setRules(true)}>{snapshot ? 'Menu' : 'Rules'}</button>{!snapshot && <button type="button" className="header-button" onClick={() => setReplayOpen(true)}>Import replay</button>}</div>
-    </header>
-    {errorBanner}
+    </header>}
+    {!view && errorBanner}
     {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={online.rooms()} busy={busy} onRules={() => setRules(true)} /> : <>
-      {!rail && <div className="sr-only" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div>}
-      {onlineMatch && (pendingRetry || onlineMatch.waitingForOpponent || view.result) && <section className="online-status" aria-label="Online table" role="status">
+      <div className="sr-only" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div>
+      <div className="table-messages">{errorBanner}
+      {onlineMatch && (pendingRetry || onlineMatch.waitingForOpponent) && <section className="online-status" aria-label="Online table" role="status">
         {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
         {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
-          : view.result && <><TurnSummary view={view} viewer={onlineMatch.viewer} openHands={false} /><span>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Finished game · replay export finalizes the result'}</span></>}
+          : null}
       </section>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
+      {view.result && <section className="game-result" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} />{onlineMatch && <p>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Replay export finalizes the result'}</p>}<button type="button" onClick={() => setRestart(true)}>Play again</button></section>}
+      </div>
       <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={actionBlocked} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
         {!playback && !actionBlocked && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
         {!actionBlocked && source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
-        <Table view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
+        <Table onHistory={() => setHistory(true)} view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
           <TurnControls view={view} viewer={onlineMatch?.viewer} draft={draft} busy={busy || pendingRetry || !!onlineMatch?.waitingForOpponent} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
-          {playback && <span className="resolving-label" role="status">Resolving…</span>}
-          {view.result && <button type="button" className="primary" onClick={() => setRestart(true)}>Play again</button>}
+          {playback && <span className="sr-only" role="status">Resolving…</span>}
         </>} onSoul={actionBlocked ? undefined : soul} onRelease={actionBlocked ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
         {!playback && !actionBlocked && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
       </div></DragSurface>
-      {rail && <aside className="details-rail" aria-label="Public history sidebar"><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><section className="rail-history"><h2>Public history</h2><PublicHistory entries={historyEntries} onInspect={setReference} /></section></aside>}
+
       </main>
     </>}
     {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command, playback.next.battleView)} geometry={playback.geometry} delay={playback.delay} onComplete={finishPlayback} />}
@@ -355,8 +354,8 @@ export function App() {
       {(!onlineMatch || view?.result) && <><p className="small muted">Replay files include both hands and deck order.{onlineMatch && ' Exporting finalizes this game and permanently disables Undo for both players.'}</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>{onlineMatch ? 'Export replay & finalize' : 'Export replay'}</button></>}<button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setRestart(true); }}>New game</button></div></Modal>}
     {replayOpen && <Modal title="Import replay" onClose={() => setReplayOpen(false)}><p>Choose an exported JSON file or paste it below. The replay opens in a separate session with its own save.</p><input type="file" accept=".json,application/json" aria-label="Replay file" onChange={async event => { const file = event.target.files?.[0]; if (file) { if (file.size > 5_000_000) setReplayError('The replay file is too large.'); else setReplayText(await file.text()); } }} /><textarea className="replay-input" aria-label="Replay JSON" value={replayText} onChange={event => setReplayText(event.target.value)} placeholder="Paste replay JSON" /><label className="replay-through">Replay through action<input type="number" min="0" max={replayCount} value={replayThrough} onChange={event => setReplayThrough(event.target.value)} placeholder={replayCount === undefined ? 'All actions' : `All ${replayCount} actions`} /></label>{replayError && <p role="alert">{replayError}</p>}<button type="button" className="primary" disabled={!replayText.trim()} onClick={() => void importReplay()}>Open replay in new session</button></Modal>}
-    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /></Modal>}
-    {desktop && (shiftHeld || hovered?.def) && hovered && hoveredDefinition && !busy && !detailsOpen && !menu && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredDefinition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredDefinition} card={hoveredCard} /></div>, document.querySelector('dialog[open]') ?? document.body)}
+    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} onInspect={setReference} /><button type="button" className="secondary history-menu-button" onClick={() => { setHistory(false); setMenu(true); }}>Table menu</button></Modal>}
+    {desktop && (shiftHeld || hovered?.def) && hovered && hoveredDefinition && !busy && !detailsOpen && !menu && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredDefinition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredDefinition} /></div>, document.querySelector('dialog[open]') ?? document.body)}
     {detailsOpen && view && <Modal title="Card details" className="details-drawer" onClose={() => setDetailsOpen(false)}>{detailsContent}</Modal>}
     {rules && <Rules onClose={() => setRules(false)} onInspect={setReference} />}
     {reference && <Modal title={reference.name} onClose={() => setReference(null)}><Inspector definition={reference} /></Modal>}

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { GameView, PlayerId, PlayerView, VisibleCard } from '../game/types';
 import { CardFace } from './CardFace';
 export { CardFace } from './CardFace';
 import { publicAsset } from './assets';
 import { useTableDrag } from './DragSurface';
+import { ActionBudget } from './DecisionBar';
 import { actionUnavailableReason, allocationLimit, effectSource } from './interaction';
 
 const cardImage = (card: VisibleCard) => publicAsset(`cards/${card.def}.png`);
@@ -17,6 +18,7 @@ function cardLabel(card: VisibleCard, allocation = 0) {
 
 interface TableProps {
   turnControls?: ReactNode;
+  onHistory?: () => void;
   view: GameView;
   viewer?: PlayerId;
   openHands: boolean;
@@ -47,10 +49,9 @@ function HandTrack({ player, openHands, children }: { player: PlayerView; openHa
   return <div className="hand-window"><div ref={track} className="hand-track" data-hand-seat={player.id} tabIndex={0} onScroll={measure} aria-description={`${player.handCount} cards`} aria-label={`${player.name}’s ${player.hand ? '' : 'hidden '}hand cards${openHands ? ', open hands' : ''}`}>{children}</div>{scroll.overflow && <><button type="button" className="hand-scroll hand-scroll-back" aria-label={`Scroll ${player.name}’s hand left`} disabled={scroll.start} onClick={() => track.current?.scrollBy({ left: -180, behavior: 'smooth' })}>‹</button><button type="button" className="hand-scroll hand-scroll-next" aria-label={`Scroll ${player.name}’s hand right`} disabled={scroll.end} onClick={() => track.current?.scrollBy({ left: 180, behavior: 'smooth' })}>›</button></>}</div>;
 }
 
-export function Table({ view, viewer = view.decisionPlayer, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls }: TableProps) {
+export function Table({ view, viewer = view.decisionPlayer, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls, onHistory }: TableProps) {
   const drag = useTableDrag();
   const resolving = effectSource(view);
-  const [expandedHand, setExpandedHand] = useState(false);
   const lower = view.players[viewer];
   const upper = view.players[viewer === 0 ? 1 : 0];
 
@@ -62,26 +63,24 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
     const face = <button type="button" key={card.id} {...drag.drop(card.id)} {...drag.bind(card.id)} data-card-id={card.id} className={`table-card ${selected ? 'selected' : ''} ${target ? 'target' : ''} ${chosen ? 'chosen' : ''}`} onClick={event => { if (!event.shiftKey) onCard(card); }} aria-label={`${target ? 'Target ' : ''}${cardLabel(card, allocation)}${chosen ? `, chosen target ${chosenTargets.indexOf(card.id) + 1}` : ''}`} aria-pressed={selected}>
       <CardFace card={card} allocation={allocation} />
       {chosen && <span className="chosen-order" aria-hidden="true">{chosenTargets.indexOf(card.id) + 1}</span>}
-      {inHand && <span className="card-name">{card.definition.name}</span>}
     </button>;
     if (inHand) return face;
     const sake = view.phase === 'effect' && resolving?.def === 'sake';
-    const canSoul = sake ? allocationLimit(view, { targets: [], allocations }, card.id) > allocation : !actionUnavailableReason(view, card, 'evoke');
-    return <div className="card-spot" key={card.id}>{face}<div className="soul-tools">{onSoul && canSoul && <button type="button" className="add-soul" aria-label={`${sake ? 'Allocate' : 'Evoke'} soul ${sake ? 'to' : 'onto'} ${card.definition.name}`} onClick={() => onSoul(card)}>+<img src={publicAsset('icons/soul.svg')} alt="" /></button>}{onRelease && selected && !actionUnavailableReason(view, card, 'release') && <button type="button" className="release-soul" onClick={() => onRelease(card)} aria-label={`Release a soul from ${card.definition.name}`}>Release</button>}</div></div>;
+    const canSoul = viewer === view.decisionPlayer && !view.result && (sake ? allocationLimit(view, { targets: [], allocations }, card.id) > allocation : !actionUnavailableReason(view, card, 'evoke'));
+    const slot = card.definition.cap - card.souls - allocation - 1;
+    return <div className="card-spot" key={card.id} style={{ '--empty-soul-index': slot } as CSSProperties}>{face}<div className="soul-tools">{onSoul && canSoul && <button type="button" className="add-soul" aria-label={`${sake ? 'Allocate' : 'Evoke'} soul ${sake ? 'to' : 'onto'} ${card.definition.name}`} title={sake ? 'Allocate a soul' : 'Add a soul'} onClick={() => onSoul(card)}><span className="soul-add-token" aria-hidden="true"><img src={publicAsset('icons/soul.svg')} alt="" /><span>+</span></span></button>}{onRelease && selected && !actionUnavailableReason(view, card, 'release') && <button type="button" className="release-soul" onClick={() => onRelease(card)} aria-label={`Release a soul from ${card.definition.name}`}>Release</button>}</div></div>;
   }
 
   function hand(player: PlayerView, top: boolean) {
-    const active = !view.result && player.id === view.decisionPlayer;
-    const owner = <>
-      {active && <span className="seat-turn">{view.phase === 'trap' ? 'Trap' : view.phase === 'effect' ? 'Effect' : view.phase === 'turnEnd' ? 'End turn' : 'Playing'}</span>}
-      <strong title={player.name}>{player.name}</strong>
-      <span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b></span>
-      {top && player.hand && <span className="hand-expand-hint" aria-hidden="true">{expandedHand ? '⌃' : '⌄'}</span>}
-    </>;
-    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${top && expandedHand ? 'expanded' : ''} ${active ? 'side-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
-      {top && player.hand ? <button type="button" className="seat-summary seat-summary-toggle" onClick={() => setExpandedHand(value => !value)} aria-expanded={expandedHand} aria-label={`${expandedHand ? 'Compact' : 'Expand'} ${player.name}’s hand`} aria-description={`${player.health} health; ${player.handCount} cards`}>{owner}</button> : <div className="seat-summary">{owner}{!top && turnControls}</div>}
+    const count = player.hand?.length ?? player.handCount;
+    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
       <HandTrack key={player.id} player={player} openHands={openHands}>
-        {player.hand ? player.hand.length ? player.hand.map(card => cardButton(card, true)) : <span className="empty-hand">No cards in hand</span> : Array.from({ length: player.handCount }, (_, index) => <span className="hand-back" key={index} aria-hidden="true"><img src={cardBack(player.id)} alt="" draggable={false} /></span>)}
+        {count ? Array.from({ length: count }, (_, index) => {
+          const card = player.hand?.[index], offset = index - (count - 1) / 2;
+          return <div className="fan-card" key={card?.id ?? index} style={{ '--fan-angle': `${offset * Math.min(7, 28 / Math.max(1, count - 1)) * (top ? -1 : 1)}deg`, '--fan-lift': `${Math.abs(offset) * 2}px` } as CSSProperties}>
+            {card ? cardButton(card, true) : <span className="hand-back" aria-hidden="true"><img src={cardBack(player.id)} alt="" draggable={false} /></span>}
+          </div>;
+        }) : <span className="empty-hand">No cards in hand</span>}
       </HandTrack>
     </section>;
   }
@@ -98,6 +97,7 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
     return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} {...fieldDrop} aria-label={`${player.name}’s play area${directAttack ? ', drop to attack directly' : ''}`}>
       {directAttack && <span className="direct-attack-hint" aria-hidden="true">Drop to attack directly</span>}
       <div className="field" data-field-seat={player.id} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s yokai`}>{[0, 1, 2].map(index => player.field[index] ? cardButton(player.field[index]) : <div key={`empty-${index}`} className="empty-slot" aria-label="Empty yokai position" />)}</div>
+      <div className="seat-summary"><span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b></span><span className="player-name">{player.name}</span>{!top && <ActionBudget view={view} viewer={viewer} />}</div>
       <div className="rear-piles">
         <div className="table-deck" data-deck-seat={player.id} aria-label={`${player.name}’s deck, ${player.deckCount} cards`}><Pile image={cardBack(player.id)} count={player.deckCount} /><span className="pile-caption">Deck</span></div>
         <button type="button" className="table-graveyard" data-graveyard-seat={player.id} onClick={() => onGraveyard(player.id)} aria-label={`View ${player.name}’s graveyard, ${player.graveyard.length} cards`}><Pile image={topDiscard ? cardImage(topDiscard) : undefined} count={player.graveyard.length} /><span className="pile-caption">Graveyard</span></button>
@@ -106,11 +106,13 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
     </section>;
   }
 
-  return <div className="table-surface">
+  return <div className={`table-surface ${view.result ? '' : view.decisionPlayer === viewer ? 'active-near' : 'active-far'} phase-${view.phase}`}>
+    {!view.result && <div key={view.decisionPlayer} className="turn-atmosphere" aria-hidden="true" />}
+    {onHistory && <button type="button" className="table-menu" aria-label="Open history and menu" onClick={onHistory}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg></button>}
     {hand(upper, true)}
     <div className="battlefield" role="region" aria-label="Facing yokai fields" tabIndex={0}>
       {seat(upper, true)}
-      <div className="table-divider" aria-hidden="true"><span /></div>
+      <div className="table-divider"><span className="divider-rule" aria-hidden="true" /><span className="toolbar-supply divider-supply" aria-label={`Supply: ${view.supply} souls`}><strong>{view.supply}</strong><img src={publicAsset('icons/soul.svg')} alt="" /></span><div className="divider-utilities">{turnControls}</div></div>
       {seat(lower, false)}
     </div>
     {hand(lower, false)}

@@ -78,12 +78,12 @@ it('loads card faces, hidden backs and soul icons beneath the deployed base URL'
   expect(html).not.toMatch(/src="\/(cards|icons)\//);
 });
 
-it('places local turn controls below the near player health', () => {
+it('places turn controls on the divider independently of the hand', () => {
   const view = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
   const html = renderToStaticMarkup(<Table view={view} openHands targetIds={[]} chosenTargets={[]} allocations={{}} onCard={() => {}} onTrap={() => {}} onGraveyard={() => {}} turnControls={<button>Undo test</button>} />);
-  const near = html.slice(html.indexOf('class="bottom-hand'));
-  expect(near.indexOf('data-health-seat')).toBeLessThan(near.indexOf('Undo test'));
-  expect(near.indexOf('Undo test')).toBeLessThan(near.indexOf('class="hand-window"'));
+  const divider = html.slice(html.indexOf('class="table-divider'), html.indexOf('class="table-seat lower-seat'));
+  expect(divider).toContain('Undo test');
+  expect(divider).toContain('Supply:');
   expect(html.match(/Undo test/g)).toHaveLength(1);
 });
 
@@ -104,10 +104,36 @@ it('highlights the whole acting side and clears it when the game ends', () => {
   const html = markup(view, false, 0);
   const far = html.slice(html.indexOf('class="top-hand'), html.indexOf('class="battlefield'));
   expect(far).toContain('side-active');
-  expect(far).toContain('class="seat-turn"');
+  expect(html).toContain('table-surface active-far');
+  expect(html).toContain('class="turn-atmosphere"');
   expect(html.match(/side-active/g)).toHaveLength(2);
-  expect(html.match(/class="seat-turn"/g)).toHaveLength(1);
+  expect(html).not.toContain('class="seat-turn"');
   view.result = { winner: 1, reason: 'Health depleted' };
   expect(markup(view)).not.toContain('side-active');
   expect(markup(view)).not.toContain('class="seat-turn"');
+});
+
+
+it('does not offer normal soul actions to the nonacting online viewer or a full yokai', () => {
+  const view = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
+  const card: VisibleCard = { id: 'kappa', def: 'kappa', owner: 0, controller: 0, zone: 'field', souls: 0, summonedTurn: 1, definition: CARDS.kappa, attack: 2 };
+  view.players[0].field = [card];
+  expect(markup(view, true, 0)).toContain('aria-label="Evoke soul onto Kappa"');
+  expect(markup(view, true, 0)).toContain('soul-add-token');
+  expect(markup(view, true, 1)).not.toContain('aria-label="Evoke soul onto Kappa"');
+  card.souls = 3; card.attack = 8;
+  expect(markup(view, true, 0)).not.toContain('aria-label="Evoke soul onto Kappa"');
+  card.souls = 0; view.actionsUsed = 2;
+  expect(markup(view, true, 0)).not.toContain('aria-label="Evoke soul onto Kappa"');
+});
+
+it('allows Sake allocation on either field without leaking ordinary evoke controls', () => {
+  const view = viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
+  const source = view.players[0].hand![0];
+  source.def = 'sake'; source.definition = CARDS.sake; source.zone = 'graveyard';
+  view.players[0].graveyard = [source]; view.phase = 'effect';
+  view.pending = { kind: 'effect', actor: 0, cardId: source.id, source: 'cast', attack: null };
+  view.players[1].field = [{ id: 'enemy-kappa', def: 'kappa', owner: 1, controller: 1, zone: 'field', souls: 0, summonedTurn: 1, definition: CARDS.kappa, attack: 2 }];
+  expect(markup(view, true, 0)).toContain('aria-label="Allocate soul to Kappa"');
+  expect(markup(view, true, 1)).not.toContain('aria-label="Allocate soul to Kappa"');
 });

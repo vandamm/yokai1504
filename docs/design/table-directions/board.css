@@ -108,3 +108,5 @@ html,body,#root { height:100%; margin:0; overflow:hidden; }
 .game .action-pips i.used { background:transparent; border:1px solid var(--accent); opacity:.4; }
 .game .soul-evoked .soul-slot.filled:last-child { animation:soul-arrive .18s ease-out both; }
 @keyframes soul-arrive { from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)} }
+
+.game .soul-slot > img { display:none; }

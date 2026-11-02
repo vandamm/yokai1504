@@ -14,7 +14,7 @@ export function CardFace({ card, allocation = 0 }: { card: VisibleCard; allocati
     {card.zone === 'field' && <>
       {card.def === 'nurikabe' && <img className="card-stat-art" src={publicAsset('cards/nurikabe-stats.svg')} alt="" draggable={false} />}
       <span className={`live-attack ${card.attack !== card.definition.atk ? 'modified' : ''}`} aria-hidden="true">{card.attack}</span>
-      <span className="soul-slots" aria-hidden="true">{Array.from({ length: card.definition.cap }, (_, index) => <span key={index} className={`soul-slot ${index < card.souls ? 'filled' : index < card.souls + allocation ? 'pending' : ''}`} />)}</span>
+      <span className="soul-slots" aria-hidden="true">{Array.from({ length: card.definition.cap }, (_, index) => <span key={index} className={`soul-slot ${index < card.souls ? 'filled' : index < card.souls + allocation ? 'pending' : ''}`}><img src={publicAsset('icons/soul.svg')} alt="" /></span>)}</span>
     </>}
   </span>;
 }

@@ -67,3 +67,9 @@ it('keeps Shift inspection inside the viewport near the right and bottom edges',
   expect(pos.left).toBeLessThan(1200); expect(pos.left).toBeGreaterThanOrEqual(12);
   expect(pos.top).toBeGreaterThanOrEqual(12); expect(pos.top + 480).toBeLessThanOrEqual(888);
 });
+
+it('keeps the wider two-column inspector inside the right edge', async () => {
+  const { inspectionPosition } = await import('./inspection');
+  const pos = inspectionPosition({ left: 800, right: 900, top: 200 }, { width: 1440, height: 900 });
+  expect(pos.left + 620).toBeLessThanOrEqual(1428);
+});

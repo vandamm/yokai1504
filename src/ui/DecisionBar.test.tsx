@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createGame } from '../game/engine';
 import { viewForLocalTesting } from '../game/views';
 import type { GameView } from '../game/types';
-import { DecisionBar, TurnControls } from './DecisionBar';
+import { ActionBudget, DecisionBar, TurnControls } from './DecisionBar';
 import { CARDS } from '../game/catalog';
 import { emptyDraft } from './interaction';
 
@@ -11,7 +11,7 @@ function position() {
   return viewForLocalTesting(createGame({ seed: 45, startingPlayer: 0 }));
 }
 function render(view: GameView, selectedId?: string) {
-  return renderToStaticMarkup(<TurnControls view={view} draft={{ ...emptyDraft(), selectedId }} busy={false} onCommand={() => {}} onDetails={() => {}} />);
+  return renderToStaticMarkup(<><ActionBudget view={view} /><TurnControls view={view} draft={{ ...emptyDraft(), selectedId }} busy={false} onCommand={() => {}} onDetails={() => {}} /></>);
 }
 
 it('offers an explicit yes or no trap response without a drag instruction', () => {
@@ -69,11 +69,11 @@ it('keeps Undo beside End turn with a drawn arrow and no extra action cost', () 
   expect(html).toContain('End turn');
 });
 
-it('keeps inspection available without attributing the opponent’s controls to a fixed online viewer', () => {
+it('disables ending the opponent’s turn for a fixed online viewer', () => {
   const view = position(), draft = { ...emptyDraft(), selectedId: view.players[1].hand![0].id };
   const html = renderToStaticMarkup(<TurnControls view={view} viewer={1} draft={draft} busy onCommand={() => {}} onDetails={() => {}} showInspect />);
-  expect(html).toContain('Inspect');
-  expect(html).not.toContain('End turn');
+  expect(html).toMatch(/disabled=""[^>]*>End turn/);
+  expect(html).not.toContain('Inspect');
   expect(html).not.toContain('actions left');
 });
 
@@ -81,7 +81,14 @@ it('keeps Undo available after ending your turn while hiding the opponent’s ac
   const view = position(); view.decisionPlayer = view.turnPlayer = 1;
   const html = renderToStaticMarkup(<TurnControls view={view} viewer={0} draft={emptyDraft()} busy={false} onCommand={() => {}} onDetails={() => {}} onUndo={() => {}} canUndo />);
   expect(html).toContain('aria-label="Undo"');
-  expect(html).not.toContain('disabled');
-  expect(html).not.toContain('End turn');
+  expect(html).toMatch(/aria-label="Undo"(?! disabled)/);
+  expect(html).toMatch(/disabled=""[^>]*>End turn/);
   expect(html).not.toContain('actions left');
+});
+
+
+it.each([0, 1, 2])('only emphasizes End turn after both main actions have been spent (%i used)', used => {
+  const view = position(); view.actionsUsed = used;
+  const html = render(view);
+  expect(html.includes('end-turn ready')).toBe(used === 2);
 });
