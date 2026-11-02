@@ -5,6 +5,7 @@
   --table:#f4f3ef;
   --line:#b8c3bd;
   --accent:#3d805a;
+  --wave:#8cbe92;
   --enemy:#a64d51;
   --focus:#246d80;
   --shadow:0 3px 4px #343a3425,0 1px 1px #343a3430;
@@ -12,25 +13,26 @@
   font-family:'Avenir Next','Segoe UI',sans-serif;
   background:radial-gradient(ellipse at 45% 40%,#fffefb,#f1f0ec 85%);
 }
-.game.theme-d.acting-opponent { --accent:var(--enemy); }
-.game.theme-d::before,.game.theme-d .atmosphere::before { content:''; position:absolute; inset:0; background:#8e9995; mask:url('./waves.svg') 0 0 / 72px 36px repeat; opacity:.16; pointer-events:none; }
+.game.theme-d.acting-opponent { --accent:var(--enemy); --wave:var(--enemy); }
+.game.theme-d::before,.game.theme-d .atmosphere::before { content:''; position:absolute; inset:0; background:#8e9995; mask:url('./waves.svg') 0 0 / 48px 24px repeat; opacity:.16; pointer-events:none; }
 .game.theme-d::before { z-index:0; }
 .game.theme-d .atmosphere,.game.theme-d.acting-opponent .atmosphere { inset:0; background:none; }
 .game.theme-d .atmosphere { mask-image:linear-gradient(to bottom,transparent 50%,#000 90%); }
 .game.theme-d.acting-opponent .atmosphere { mask-image:linear-gradient(to top,transparent 50%,#000 90%); }
-.game.theme-d .atmosphere::before { background:var(--accent); opacity:.62; }
+.game.theme-d .atmosphere::before { background:var(--wave); opacity:.62; }
 .game.theme-d .table-divider { background:#a4b9b34a; box-shadow:none; }
 .game.theme-d .table-card .card-face { box-shadow:var(--shadow); border-radius:4px; }
 .game.theme-d .table-card.target .card-face { box-shadow:0 4px 0 -1px var(--accent),var(--shadow); }
 .game.theme-d .table-card.chosen .card-face { box-shadow:0 5px 0 -1px var(--accent),0 6px 9px #34453c32; }
 .game.theme-d .table-card.dragging .card-face { box-shadow:0 12px 18px #343a3438,0 2px 3px #343a3430; }
 .game.theme-d .back { box-shadow:0 3px 5px #343a3428; }
-.game.theme-d .pile-art img { box-shadow:1px -1px 0 #fffefb,2px -2px 0 #a9b9b0,3px -3px 0 #fffefb,4px -4px 0 #b5c2bc,0 4px 5px #343a3428; }
-.game.theme-d .pile-art.empty,.game.theme-d .trap-art.empty { border-color:#b4c1ba; background:#ffffff24; }
-.game.theme-d .trap-art.empty .empty-mark { color:#81958c; font-weight:300; }
+.game.theme-d .pile-art img { outline:1px solid #687f70; box-shadow:1px -1px 0 #fffefb,2px -2px 0 #728b7b,3px -3px 0 #fffefb,4px -4px 0 #6f8575,0 4px 5px #2f483b45; }
+.game.theme-d .trap-art:not(.empty) { outline:1px solid #687f70; box-shadow:0 2px 4px #2f483b4a; }
+.game.theme-d .pile-art.empty,.game.theme-d .trap-art.empty { border:1.5px dashed #6d8073; background:#f8faf4; box-shadow:inset 0 0 0 1px #fffefb,0 1px 2px #40554b1a; }
+.game.theme-d .trap-art.empty .empty-mark { color:#526b59; font-weight:400; }
 .game.theme-d .pile-caption { color:var(--muted); }
 .game.theme-d .seat-status .pile-caption { display:none; }
-.game.theme-d .pile-count { border-color:#c4cbc5; background:var(--surface); box-shadow:0 1px 2px #343a3415; }
+.game.theme-d .pile-count { border-color:#6b7f70; color:#304335; background:var(--surface); box-shadow:0 1px 2px #3449362e; font-size:11px; min-width:18px; height:18px; line-height:14px; }
 .game.theme-d .supply { min-width:62px; gap:5px; padding:3px; color:var(--ink); background:var(--table); border:0; border-radius:3px; }
 .game.theme-d .turn-controls .undo { color:var(--muted); background:transparent; border-radius:50%; }
 .game.theme-d .turn-controls .undo svg { width:16px; height:16px; opacity:.85; }
