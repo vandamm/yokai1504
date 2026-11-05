@@ -19,6 +19,7 @@ function cardLabel(card: VisibleCard, allocation = 0) {
 interface TableProps {
   turnControls?: ReactNode;
   onHistory?: () => void;
+  onNotifications?: () => void;
   view: GameView;
   viewer?: PlayerId;
   openHands: boolean;
@@ -49,7 +50,7 @@ function HandTrack({ player, openHands, children }: { player: PlayerView; openHa
   return <div className="hand-window"><div ref={track} className="hand-track" data-hand-seat={player.id} tabIndex={0} onScroll={measure} aria-description={`${player.handCount} cards`} aria-label={`${player.name}’s ${player.hand ? '' : 'hidden '}hand cards${openHands ? ', open hands' : ''}`}>{children}</div>{scroll.overflow && <><button type="button" className="hand-scroll hand-scroll-back" aria-label={`Scroll ${player.name}’s hand left`} disabled={scroll.start} onClick={() => track.current?.scrollBy({ left: -180, behavior: 'smooth' })}>‹</button><button type="button" className="hand-scroll hand-scroll-next" aria-label={`Scroll ${player.name}’s hand right`} disabled={scroll.end} onClick={() => track.current?.scrollBy({ left: 180, behavior: 'smooth' })}>›</button></>}</div>;
 }
 
-export function Table({ view, viewer = view.decisionPlayer, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls, onHistory }: TableProps) {
+export function Table({ view, viewer = view.decisionPlayer, openHands, selectedId, targetIds, chosenTargets, allocations, targetTrapSeats = [], onCard, onTrap, onGraveyard, onSoul, onRelease, turnControls, onHistory, onNotifications }: TableProps) {
   const drag = useTableDrag();
   const resolving = effectSource(view);
   const lower = view.players[viewer];
@@ -60,8 +61,11 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
     const selected = selectedId === card.id || chosen;
     const target = targetIds.includes(card.id);
     const allocation = allocations[card.id] ?? 0;
-    const face = <button type="button" key={card.id} {...drag.drop(card.id)} {...drag.bind(card.id)} data-card-id={card.id} className={`table-card ${selected ? 'selected' : ''} ${target ? 'target' : ''} ${chosen ? 'chosen' : ''}`} onClick={event => { if (!event.shiftKey) onCard(card); }} aria-label={`${target ? 'Target ' : ''}${cardLabel(card, allocation)}${chosen ? `, chosen target ${chosenTargets.indexOf(card.id) + 1}` : ''}`} aria-pressed={selected}>
+    const combat = drag.combat;
+    const doomed = combat && (combat.attacker.id === card.id && combat.attackerDies || combat.target?.id === card.id && combat.targetDies);
+    const face = <button type="button" key={card.id} {...drag.drop(card.id)} {...drag.bind(card.id)} data-card-id={card.id} className={`table-card ${selected ? 'selected' : ''} ${target ? 'target' : ''} ${chosen ? 'chosen' : ''} ${doomed ? 'combat-doomed' : ''}`} onClick={event => { if (!event.shiftKey) onCard(card); }} aria-label={`${target ? 'Target ' : ''}${cardLabel(card, allocation)}${chosen ? `, chosen target ${chosenTargets.indexOf(card.id) + 1}` : ''}`} aria-pressed={selected}>
       <CardFace card={card} allocation={allocation} />
+      {doomed && <><span className="combat-skull" role="img" aria-label={combat.trapRisk ? 'May be destroyed; a trap could change the outcome' : 'Would be destroyed'} />{combat.trapRisk && <span className="combat-uncertain" aria-hidden="true">?</span>}</>}
       {chosen && <span className="chosen-order" aria-hidden="true">{chosenTargets.indexOf(card.id) + 1}</span>}
     </button>;
     if (inHand) return face;
@@ -73,7 +77,7 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
 
   function hand(player: PlayerView, top: boolean) {
     const count = player.hand?.length ?? player.handCount;
-    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
+    return <section className={`${top ? 'top-hand' : 'bottom-hand'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} style={{ '--fan-rise': `${count}px` } as CSSProperties} aria-label={`${player.name}’s hand, ${top ? 'far' : 'near'} edge`}>
       <HandTrack key={player.id} player={player} openHands={openHands}>
         {count ? Array.from({ length: count }, (_, index) => {
           const card = player.hand?.[index], offset = index - (count - 1) / 2;
@@ -87,17 +91,19 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
 
   function seat(player: PlayerView, top: boolean) {
     const trap = player.trap;
+    const combat = drag.combat, trapRisk = combat?.opponent === player.id && combat.trapRisk;
+    const damage = combat ? player.id === combat.opponent ? combat.opponentDamage : combat.ownDamage : 0;
     const fieldDrop = drag.drop(`field:${player.id}`);
     const directAttack = player.id !== view.decisionPlayer && player.field.length === 0 && !!fieldDrop['data-drop-state'];
     const targetTrap = targetTrapSeats.includes(player.id) || (visibleTrap(trap) && targetIds.includes(trap.id));
     const chosenTrap = chosenTargets.includes(`trap:${player.id}`) || (visibleTrap(trap) && chosenTargets.includes(trap.id));
     const selectedTrap = chosenTrap || (visibleTrap(trap) && selectedId === trap.id);
     const topDiscard = player.graveyard.at(-1);
-    const trapContents = <>{trap ? <img src={visibleTrap(trap) ? cardImage(trap) : cardBack(player.id)} alt="" draggable={false} /> : <span className="empty-trap-card" aria-hidden="true">×</span>}<span className="pile-caption">Trap</span></>;
+    const trapContents = <>{trap ? <img src={visibleTrap(trap) ? cardImage(trap) : cardBack(player.id)} alt="" draggable={false} /> : <span className="empty-trap-card" aria-hidden="true">×</span>}<span className="pile-caption">Trap</span>{trapRisk && <span className="combat-trap-question" aria-hidden="true">?</span>}</>;
     return <section className={`table-seat ${top ? 'upper-seat' : 'lower-seat'} ${!view.result && player.id === view.decisionPlayer ? 'side-active' : ''}`} {...fieldDrop} aria-label={`${player.name}’s play area${directAttack ? ', drop to attack directly' : ''}`}>
       {directAttack && <span className="direct-attack-hint" aria-hidden="true">Drop to attack directly</span>}
       <div className="field" data-field-seat={player.id} {...drag.drop(`field:${player.id}`)} aria-label={`${player.name}’s yokai`}>{[0, 1, 2].map(index => player.field[index] ? cardButton(player.field[index]) : <div key={`empty-${index}`} className="empty-slot" aria-label="Empty yokai position" />)}</div>
-      <div className="seat-summary"><span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b></span><span className="player-name">{player.name}</span>{!top && <ActionBudget view={view} viewer={viewer} />}</div>
+      <div className="seat-summary"><span className="health" {...drag.drop(`player:${player.id}`)} data-health-seat={player.id} aria-label={`${player.name}, ${player.health} health`}><span aria-hidden="true">♥</span><b>{player.health}</b>{combat && (player.id === combat.opponent || damage > 0) && <span className="combat-health-preview">{damage ? '−' : ''}{damage}{combat.trapRisk ? '?' : ''}</span>}</span><span className="player-name">{player.name}</span>{trapRisk && <span className="combat-trap-warning">Trap may change outcome</span>}{!top && <ActionBudget view={view} viewer={viewer} />}</div>
       <div className="rear-piles">
         <div className="table-deck" data-deck-seat={player.id} aria-label={`${player.name}’s deck, ${player.deckCount} cards`}><Pile image={cardBack(player.id)} count={player.deckCount} /><span className="pile-caption">Deck</span></div>
         <button type="button" className="table-graveyard" data-graveyard-seat={player.id} onClick={() => onGraveyard(player.id)} aria-label={`View ${player.name}’s graveyard, ${player.graveyard.length} cards`}><Pile image={topDiscard ? cardImage(topDiscard) : undefined} count={player.graveyard.length} /><span className="pile-caption">Graveyard</span></button>
@@ -109,6 +115,7 @@ export function Table({ view, viewer = view.decisionPlayer, openHands, selectedI
   return <div className={`table-surface ${view.result ? '' : view.decisionPlayer === viewer ? 'active-near' : 'active-far'} phase-${view.phase}`}>
     {!view.result && <div key={view.decisionPlayer} className="turn-atmosphere" aria-hidden="true" />}
     {onHistory && <button type="button" className="table-menu" aria-label="Open history and menu" onClick={onHistory}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg></button>}
+    {onNotifications && <button type="button" className="table-menu table-notifications" aria-label="Notification settings" onClick={onNotifications}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg></button>}
     {hand(upper, true)}
     <div className="battlefield" role="region" aria-label="Facing yokai fields" tabIndex={0}>
       {seat(upper, true)}

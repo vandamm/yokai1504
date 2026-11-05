@@ -8,6 +8,7 @@ const CREATE_KEY = 'yokai-1504.online-create.v1';
 type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 interface Seat { token: string; invite?: string; pendingJoin?: { invite: string; name: string }; }
 interface Creation { matchId: string; token: string; invite: string; name: string; }
+export interface RecentGame { room: string; opponent: string | null; status: 'active' | 'waiting' | 'finished' | 'unavailable'; turn: number | null; yourTurn: boolean; }
 const secret = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
 class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
@@ -38,6 +39,20 @@ export class OnlineSession {
   rooms(): string[] {
     try { const value: unknown = JSON.parse(this.storage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(value) ? value.filter((room): room is string => typeof room === 'string' && /^[a-zA-Z0-9-]{1,80}$/.test(room)).slice(0, 8) : []; }
     catch { return []; }
+  }
+
+  async recentGames(): Promise<RecentGame[]> {
+    return Promise.all(this.rooms().map(async (room): Promise<RecentGame> => {
+      const unavailable: RecentGame = { room, opponent: null, status: 'unavailable', turn: null, yourTurn: false };
+      try {
+        const seat = this.readSeat(room);
+        if (!seat?.token || typeof seat.token !== 'string') return unavailable;
+        const snapshot = checkedSnapshot(await this.request<OnlineSnapshot>(`/${encodeURIComponent(room)}`, undefined, seat.token), room);
+        return { room, opponent: snapshot.waitingForOpponent ? null : snapshot.view.players[snapshot.viewer === 0 ? 1 : 0].name,
+          status: snapshot.view.result ? 'finished' : snapshot.waitingForOpponent ? 'waiting' : 'active', turn: snapshot.view.turn,
+          yourTurn: !snapshot.view.result && !snapshot.waitingForOpponent && snapshot.view.decisionPlayer === snapshot.viewer };
+      } catch { return unavailable; }
+    }));
   }
 
   private remember(room: string, seat: Seat) {
@@ -152,5 +167,10 @@ export class OnlineSession {
   async exportReplay(): Promise<string> {
     if (!this.room || !this.seat) throw new Error('Join an online room first.');
     return JSON.stringify(await this.request(`/${encodeURIComponent(this.room)}/replay`, {}, this.seat.token), null, 2);
+  }
+
+  async notifications(input: { type: 'save'; subscription: PushSubscriptionJSON } | { type: 'status' | 'remove' | 'test'; endpoint: string }): Promise<{ enabled: boolean }> {
+    if (!this.room || !this.seat) throw new Error('Join an online room first.');
+    return this.request(`/${encodeURIComponent(this.room)}/notifications`, input, this.seat.token);
   }
 }

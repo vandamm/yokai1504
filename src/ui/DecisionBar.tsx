@@ -7,9 +7,11 @@ import { publicAsset } from './assets';
 interface Props {
   view: GameView; draft: TableDraft; busy: boolean; onDraft: (event: DraftEvent) => void;
   onCommand: (command: GameCommand) => void; onDetails: (card?: VisibleCard) => void; onUnavailable?: (reason: string) => void;
+  onCancel?: () => void;
 }
 export function ActionBudget({ view, viewer }: { view: GameView; viewer?: PlayerId }) {
-  if (view.result || view.phase !== 'main' || viewer !== undefined && viewer !== view.decisionPlayer) return null;
+  const mainPhase = view.phase === 'main' || view.phase === 'effect' && view.decisionPlayer === view.turnPlayer && view.pending?.kind === 'effect' && view.pending.attack === null;
+  if (view.result || !mainPhase || viewer !== undefined && viewer !== view.decisionPlayer) return null;
   const remaining = 2 - view.actionsUsed;
   return <span className={`action-budget ${remaining === 0 ? 'exhausted' : ''}`} role="status" aria-label={`${remaining} main ${remaining === 1 ? 'action' : 'actions'} left`}><span className="action-pips" aria-hidden="true">{[0, 1].map(i => <i key={i} className={i < remaining ? '' : 'used'} />)}</span></span>;
 }
@@ -25,7 +27,7 @@ export function TurnControls({ view, viewer, busy, onCommand, onUndo, canUndo = 
 }
 
 /** Only pending decisions need instructions; routine play stays on the table. */
-export function DecisionBar({ view, draft, busy, onCommand, onDraft }: Props) {
+export function DecisionBar({ view, draft, busy, onCommand, onDraft, onCancel }: Props) {
   const drag = useTableDrag(), source = effectSource(view);
   if (view.phase === 'trap') return <section className="effect-panel trap-prompt" aria-label="Trap response"><strong>Do you want to activate the trap?</strong><div className="trap-options"><button type="button" className="primary" disabled={busy} onClick={() => onCommand({ type: 'respond', activate: true })}>Activate trap</button><button type="button" disabled={busy} onClick={() => onCommand({ type: 'respond', activate: false })}>Keep hidden</button></div></section>;
   if (!source) return null;
@@ -41,7 +43,7 @@ export function DecisionBar({ view, draft, busy, onCommand, onDraft }: Props) {
     <div className="effect-drag-card" {...(source.def === 'ougi' ? {} : drag.bind(source.id))} data-card-id={source.id} {...(source.def === 'ougi' ? {} : { tabIndex: 0, role: 'button', 'aria-label': `Drag ${source.definition.name} to resolve its effect` })}><img src={publicAsset(`cards/${source.def}.png`)} alt="" draggable={false} /></div>
     <div className="effect-instructions"><strong>{source.definition.name}</strong><p role="status">{prompt}</p>
 
-      <div className="effect-confirm">{staged && <button type="button" className="primary" {...drag.drop('resolve')} disabled={busy || !canConfirmEffect(view, draft)} onClick={() => onCommand(effectCommand(view, draft))}>Resolve {source.definition.name}</button>}{(total > 0 || draft.targets.length > 0) && <button type="button" className="text-button" onClick={() => onDraft({ type: 'clear' })}>Clear choices</button>}</div>
+      <div className="effect-confirm">{staged && <button type="button" className="primary" {...drag.drop('resolve')} disabled={busy || !canConfirmEffect(view, draft)} onClick={() => onCommand(effectCommand(view, draft))}>Resolve {source.definition.name}</button>}{(total > 0 || draft.targets.length > 0) && <button type="button" className="text-button" onClick={() => onDraft({ type: 'clear' })}>Clear choices</button>}{view.pending?.kind === 'effect' && view.pending.source === 'cast' && onCancel && <button type="button" className="text-button" disabled={busy} onClick={onCancel}>Cancel spell</button>}</div>
     </div>
   </section>;
 }

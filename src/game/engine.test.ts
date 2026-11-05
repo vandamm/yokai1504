@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand, attackOf, canActivate, createGame, previewBattle, RuleError } from './engine';
 import { CARDS, DECK } from './catalog';
+import { historyText } from './history';
 import type { CardDefId, GameCommand, GameState, PlayerId } from './types';
 
 function fixture(): GameState {
@@ -146,9 +147,31 @@ describe('spells and release effects', () => {
     const foe=put(s,'zashiki-warashi',1,'field',1); const n=act(act(s,{type:'release',cardId:neko}),{type:'choose',targets:[foe]});
     expect(n.players[0].field).toContain(foe); expect(n.players[1].field).toContain(neko); expect(n.cards[foe].souls).toBe(1); expect(n.cards[neko].souls).toBe(1); invariant(n);
   });
+  it.each([{ used: 0, expected: 1 }, { used: 1, expected: 2 }])('evoking then exchanging Nekomata preserves $expected spent actions', ({ used, expected }) => {
+    const s=fixture(), neko=put(s,'nekomata',0), foe=put(s,'kappa',1);
+    s.actionsUsed=used;
+    const evoked=act(s,{type:'evoke',cardId:neko});
+    expect(evoked.actionsUsed).toBe(expected);
+    const released=act(evoked,{type:'release',cardId:neko});
+    expect(released.actionsUsed).toBe(expected); expect(released.cards[neko].souls).toBe(0);
+    const exchanged=act(released,{type:'choose',targets:[foe]});
+    expect(exchanged.actionsUsed).toBe(expected); expect(exchanged.phase).toBe('main');
+    expect(exchanged.players[0].field).toEqual([foe]); expect(exchanged.players[1].field).toEqual([neko]);
+    invariant(exchanged);
+  });
 });
 
 describe('combat and timing', () => {
+  it('records original owners in every card reference after a Nekomata exchange', () => {
+    const s=fixture(), neko=put(s,'nekomata',0,'field',1), foe=put(s,'kappa',1);
+    let n=act(act(s,{type:'release',cardId:neko}),{type:'choose',targets:[foe]});
+    n=act(n,{type:'evoke',cardId:foe});
+    expect(n.history.at(-1)).toEqual({actor:0,parts:['Player 1 evokes a soul onto ',{card:'kappa',owner:1},'.']});
+    n=act(n,{type:'attack',attacker:foe,target:neko});
+    expect(n.history).toContainEqual({actor:0,parts:['Player 1 attacks with ',{card:'kappa',owner:1},' against ',{card:'nekomata',owner:0},'.']});
+    expect(n.history).toContainEqual({actor:0,parts:[{card:'nekomata',owner:0},' is destroyed.']});
+    invariant(n);
+  });
   it('resolves attacker victory, damage and waits for explicit turn completion', () => {
     const s=fixture(), a=put(s,'tengu',0,'field',1), b=put(s,'kappa',1);
     const n=act(s,{type:'attack',attacker:a,target:b}); expect(n.players[1].health).toBe(12); expect(n.players[1].graveyard).toContain(b); expect(n.turnPlayer).toBe(0); expect(n.phase).toBe('turnEnd'); expect(n.turn).toBe(3); invariant(n);
@@ -265,8 +288,8 @@ describe('trap casting requirements at attack declaration', () => {
     const n=act(s,{type:'attack',attacker:a,target:b});
     expect(n.phase).toBe('turnEnd'); expect(n.pending).toBeNull();
     expect(n.players[1].trap).toBe(trap);
-    expect(n.history.join(' ')).not.toContain(CARDS[def].name);
-    expect(n.history.join(' ')).not.toContain('declines'); invariant(n);
+    expect(n.history.map(historyText).join(' ')).not.toContain(CARDS[def].name);
+    expect(n.history.map(historyText).join(' ')).not.toContain('declines'); invariant(n);
   });
   it.each(['boseki', 'ougi', 'hamaya', 'sake', 'jufu', 'kozuchi'] as const)('offers a legal %s trap', def => {
     const s=fixture(), a=put(s,'kappa',0,'field',1), b=put(s,'tengu',1);

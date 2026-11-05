@@ -52,3 +52,22 @@ it('casts a set spell by dragging it into the shared play area on your turn', ()
   spell.zone='trap'; v.players[0].trap=spell;
   expect(resolveDrop(v,emptyDraft(),spell.id,'field:0').command).toEqual({type:'play',cardId:spell.id});
 });
+
+it('does not pick up a hand yokai when all three field positions are occupied', () => {
+  const v = view(), yokai = v.players[0].hand!.find(card => card.definition.kind === 'yokai')!;
+  v.players[0].field = [0, 1, 2].map(index => ({ ...yokai, id: `field-${index}`, zone: 'field' }));
+  expect(canDragCard(v, yokai)).toBe(false);
+  v.players[0].field.pop();
+  expect(canDragCard(v, yokai)).toBe(true);
+  v.actionsUsed = 2;
+  expect(canDragCard(v, yokai)).toBe(false);
+});
+
+it('keeps spell traps draggable with a full field after both main actions are spent', () => {
+  const v = view(), spell = v.players[0].hand!.find(card => card.definition.kind === 'spell')!;
+  const yokai = v.players[0].hand!.find(card => card.definition.kind === 'yokai')!;
+  v.players[0].field = [0, 1, 2].map(index => ({ ...yokai, id: `field-${index}`, zone: 'field' }));
+  v.actionsUsed = 2;
+  expect(canDragCard(v, spell)).toBe(true);
+  expect(resolveDrop(v, emptyDraft(), spell.id, 'trap:0').command).toEqual({ type: 'setTrap', cardId: spell.id });
+});

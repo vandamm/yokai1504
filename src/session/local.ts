@@ -1,6 +1,8 @@
 import { CARDS, DECK } from '../game/catalog';
 import { applyCommand, canResolvePendingEffect, createGame, previewBattle } from '../game/engine';
 import { viewForLocalTesting, viewForPlayer } from '../game/views';
+import { historyText } from '../game/history';
+import { recoverHistory } from '../game/history-recovery';
 import { createId } from './id';
 import type { GameCommand, GameState, GameView, PlayerId, SetupOptions } from '../game/types';
 
@@ -82,7 +84,17 @@ function validateGame(value: unknown): asserts value is GameState {
   check(integer(value.turn, 1) && player(value.turnPlayer) && player(value.decisionPlayer), 'Invalid turn or player.');
   check(['main', 'trap', 'effect', 'turnEnd', 'finished'].includes(value.phase), 'Invalid game phase.');
   check(integer(value.actionsUsed, 0, 2) && integer(value.supply, 0, 11), 'Invalid action budget or soul supply.');
-  check(Array.isArray(value.history) && value.history.every((entry: unknown) => typeof entry === 'string'), 'Invalid public history.');
+  check(Array.isArray(value.history) && value.history.every((entry: unknown) => {
+    if (typeof entry === 'string') return true;
+    if (!object(entry)) return false;
+    keys(entry, ['actor', 'parts']);
+    return player(entry.actor) && Array.isArray(entry.parts) && entry.parts.length > 0 && entry.parts.length <= 32 && entry.parts.every((part: unknown) => {
+      if (typeof part === 'string') return part.length <= 10000;
+      if (!object(part)) return false;
+      keys(part, ['card', 'owner']);
+      return typeof part.card === 'string' && Object.hasOwn(CARDS, part.card) && player(part.owner);
+    });
+  }), 'Invalid public history.');
   check(object(value.cards) && Object.keys(value.cards).length === 30, 'The match must contain 30 cards.');
   check(Array.isArray(value.players) && value.players.length === 2, 'The match needs two players.');
   const zones = new Map<string, { player: PlayerId; zone: string }>();
@@ -169,7 +181,7 @@ function validateGame(value: unknown): asserts value is GameState {
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (object(value)) return `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  if (object(value)) return `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${canonical(key === 'history' && Array.isArray(value[key]) ? value[key].map(historyText) : value[key])}`).join(',')}}`;
   return JSON.stringify(value);
 }
 
@@ -233,7 +245,7 @@ export class LocalSession {
     const command: GameCommand | undefined = receipt?.acceptedRevision === match.revision ? JSON.parse(receipt.payload).command : undefined;
     const battle = checkpoint && command ? previewBattle({ ...checkpoint, history: match.state.history.slice(0, checkpoint.historyLength) }, command) : undefined;
     const battleView = battle && (match.openHands ? viewForLocalTesting(battle) : viewForPlayer(battle, battle.decisionPlayer));
-    return copy({ matchId: match.matchId, revision: match.revision, view, battleView, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0) });
+    return copy({ matchId: match.matchId, revision: match.revision, view, battleView, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0).map(historyText) });
   }
 
   private checkRevision(expected: number) {
@@ -256,6 +268,13 @@ export class LocalSession {
   async load(): Promise<SessionSnapshot | null> {
     const raw = this.read();
     const next = raw === null ? null : parseSaved(raw);
+    if (next) {
+      const active: ReplayAction[] = [];
+      for (const event of next.audit ?? []) { if (event.kind === 'command') active.push(event); else if (event.kind === 'undo') active.pop(); }
+      const receipts: ReplayAction[] = next.receipts.map(receipt => JSON.parse(receipt.payload));
+      const candidates = next.checkpoints.map((_, index) => next.audit && active.length === next.checkpoints.length ? [active[index]] : receipts);
+      next.state = { ...next.state, history: recoverHistory(next.state, next.checkpoints, candidates) };
+    }
     this.saved = next;
     this.persisted = raw;
     return next ? this.snapshot() : null;

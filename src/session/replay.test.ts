@@ -1,7 +1,25 @@
 import { expect, it } from 'vitest';
 import { LocalSession, type SessionStorage } from './local';
+import { historyText } from '../game/history';
 class Storage implements SessionStorage { value: string | null = null; getItem() { return this.value; } setItem(_key: string, value: string) { this.value = value; } }
 const send = async (session: LocalSession) => { const s = await session.getSnapshot(); return session.submit({ matchId: s.matchId, commandId: `command-${s.revision}`, expectedRevision: s.revision, actor: s.view.decisionPlayer, command: { type: 'endTurn' } }); };
+it('loads old text-only card history, upgrades its owners and imports old replay files', async () => {
+  const storage = new Storage(), session = new LocalSession(storage, () => 'history');
+  const start = await session.start({ seed: 45, startingPlayer: 0 });
+  const card = start.view.players[0].hand!.find(card => card.definition.kind === 'yokai')!;
+  const played = await session.submit({matchId:start.matchId,commandId:'play',expectedRevision:start.revision,actor:0,command:{type:'play',cardId:card.id}});
+  const file = JSON.parse(await session.exportReplay());
+  file.initial.history = file.initial.history.map(historyText); file.final.history = file.final.history.map(historyText);
+  const restored = await new LocalSession(new Storage(), () => 'old-replay').importReplay(JSON.stringify(file));
+  expect(restored.view).toEqual(played.view);
+  const legacy = JSON.parse(storage.value!); legacy.state.history = legacy.state.history.map(historyText); storage.value = JSON.stringify(legacy);
+  const reloaded = new LocalSession(storage), upgraded = await reloaded.load();
+  expect(upgraded!.view.historyEntries).toContainEqual({actor:0,parts:['Player 1 summons ',{card:card.def,owner:0},'.']});
+  expect((await reloaded.undo(upgraded!.revision)).view.history).toEqual(start.view.history);
+  const invalid = JSON.parse(JSON.stringify(file));
+  invalid.final.history.push({actor:0,parts:[{card:'kappa',owner:2}]});
+  await expect(new LocalSession(new Storage()).importReplay(JSON.stringify(invalid))).rejects.toThrow(/history/);
+});
 it('exports all accepted actions including undo branches and recreates the exact current point independently', async () => {
   const storage = new Storage(), original = new LocalSession(storage, () => 'original');
   await original.start({ seed: 45, startingPlayer: 0 });

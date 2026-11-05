@@ -1,5 +1,7 @@
 import { applyCommand, createGame, previewBattle } from '../game/engine';
 import { viewForPlayer } from '../game/views';
+import { historyText } from '../game/history';
+import { recoverHistory } from '../game/history-recovery';
 import type { GameCommand, GameState, PlayerId } from '../game/types';
 import type { OnlineAction, OnlineSnapshot } from './protocol';
 
@@ -28,6 +30,11 @@ export type RoomRequest =
   | { type: 'command'; tokenHash: string; action: OnlineAction };
 export class ServerError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
+}
+export function authorizedPlayer(room: Room | null, tokenHash: string): PlayerId {
+  const actor = room?.tokenHashes.findIndex(hash => hash !== null && hash === tokenHash);
+  if (actor !== 0 && actor !== 1) throw new ServerError(401, 'Not authorized.');
+  return actor;
 }
 function check(value: unknown, message: string, status = 400): asserts value {
   if (!value) throw new ServerError(status, message);
@@ -91,7 +98,7 @@ function snapshot(room: Room, viewer: PlayerId): OnlineSnapshot {
   const battle = checkpoint && action?.kind === 'command' ? previewBattle({ ...checkpoint, history: room.state.history.slice(0, checkpoint.historyLength) }, action.command) : undefined;
   return { matchId: room.matchId, revision: room.revision, view: viewForPlayer(room.state, viewer), battleView: battle && viewForPlayer(battle, viewer), viewer, finalized: !!room.finalized,
     openHands: false, canUndo: canUndo(room, viewer), waitingForOpponent: room.tokenHashes[1] === null,
-    undoRequestedBy: room.undoRequestedBy, recentHistory: room.state.history.slice(room.checkpoints.at(-1)?.historyLength ?? 0) };
+    undoRequestedBy: room.undoRequestedBy, recentHistory: room.state.history.slice(room.checkpoints.at(-1)?.historyLength ?? 0).map(historyText) };
 }
 
 // Credentials are hashed before this synchronous reducer, so persistence never crosses an await.
@@ -120,8 +127,9 @@ export function reduceRoom(current: Room | null, request: RoomRequest, randomSou
       joinReceipt: { inviteHash: request.inviteHash, tokenHash: request.tokenHash, name: state.players[1].name }, state, initial: state };
     return { room, value: snapshot(room, 1) };
   }
-  const actor = current.tokenHashes.findIndex(hash => hash !== null && hash === request.tokenHash);
-  check(actor === 0 || actor === 1, 'Not authorized.', 401);
+  const actor = authorizedPlayer(current, request.tokenHash);
+  const history = recoverHistory(current.state, current.checkpoints, current.actions.map(action => [action]));
+  if (history !== current.state.history) current = { ...current, state: { ...current.state, history } };
   if (current.undoWindow === undefined || current.undoRequestedBy !== null) current = { ...current, undoWindow: undoBoundary(current), undoRequestedBy: null, revision: current.revision + 1 };
   if (request.type === 'snapshot') return { room: current, value: snapshot(current, actor) };
   if (request.type === 'replay') {

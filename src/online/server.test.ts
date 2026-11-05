@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest';
 import { LocalSession } from '../session/local';
+import { CARDS } from '../game/catalog';
+import { historyText } from '../game/history';
 import { reduceRoom, validateAction, validateName, type RoomRequest } from './server';
 import type { CardDefId, GameCommand, GameState, PlayerId } from '../game/types';
 import type { OnlineCommand } from './protocol';
@@ -12,6 +14,22 @@ function setup() {
   const command = (tokenHash: string, type: 'endTurn' | 'undo' | 'requestUndo', id = `id-${room!.revision}`, revision = room!.revision) => send({ type: 'command', tokenHash, action: { commandId: id, expectedRevision: revision, command: { type } as OnlineCommand } });
   return { send, join, command, get room() { return room!; } };
 }
+
+it('upgrades an existing room log without changing its revision or breaking plain-text clients and Undo', () => {
+  const game = setup(); game.join();
+  const actor = game.room.state.decisionPlayer, token = actor === 0 ? host : guest;
+  const cardId = game.room.state.players[actor].hand.find(id => CARDS[game.room.state.cards[id].def].kind === 'yokai')!;
+  const before = game.room.state.history.map(historyText);
+  game.send({type:'command',tokenHash:token,action:{commandId:'history-play',expectedRevision:game.room.revision,command:{type:'play',cardId}}});
+  const legacy = structuredClone(game.room); legacy.state.history = legacy.state.history.map(historyText);
+  const upgraded = reduceRoom(legacy, {type:'snapshot',tokenHash:token});
+  expect(upgraded.room.revision).toBe(legacy.revision);
+  expect('view' in upgraded.value && upgraded.value.view.history.every(entry => typeof entry === 'string')).toBe(true);
+  expect('view' in upgraded.value && upgraded.value.view.historyEntries).toContainEqual({actor,parts:[`${legacy.state.players[actor].name} summons `,{card:legacy.state.cards[cardId].def,owner:actor},'.']});
+  expect(reduceRoom(upgraded.room, {type:'snapshot',tokenHash:token}).room).toBe(upgraded.room);
+  const undone = reduceRoom(upgraded.room,{type:'command',tokenHash:token,action:{commandId:'history-undo',expectedRevision:upgraded.room.revision,command:{type:'undo'}}});
+  expect(undone.room.state.history.map(historyText)).toEqual(before);
+});
 
 it('keeps seats fixed, hides all opponent cards and blocks play before the one-use join', () => {
   const game = setup();
@@ -80,6 +98,21 @@ function relocate(state: GameState, owner: PlayerId, def: CardDefId, zone: 'fiel
   if (zone === 'trap') player.trap = card.id; else player[zone].push(card.id);
   return card.id;
 }
+
+it.each(['hand', 'trap'] as const)('cancels a pending online spell from %s with only its caster authorized', zone => {
+  const game = setup(); game.join(); const state = game.room.state;
+  state.turn = 3; state.turnPlayer = state.decisionPlayer = 0; state.actionsUsed = 0;
+  relocate(state, 0, 'kappa', 'field');
+  const cardId = relocate(state, 0, 'sake', 'trap');
+  if (zone === 'hand') { state.players[0].trap = null; state.players[0].hand.push(cardId); }
+  const before = game.send({ type: 'snapshot', tokenHash: host }) as any;
+  game.send({ type: 'command', tokenHash: host, action: { commandId: 'cast', expectedRevision: game.room.revision, command: { type: 'play', cardId } } });
+  expect(game.room.state.phase).toBe('effect');
+  expect(() => game.command(guest, 'undo')).toThrow(/Undo is unavailable/);
+  game.command(host, 'undo');
+  const restored = game.send({ type: 'snapshot', tokenHash: host }) as any;
+  expect(restored.view).toEqual(before.view);
+});
 it.each(['trap', 'effect', 'turnEnd'] as const)('enforces the authenticated decision seat during %s', phase => {
   const game = setup(); game.join(); const state = game.room.state;
   state.turn = 3; state.turnPlayer = 0; state.phase = phase; state.decisionPlayer = phase === 'turnEnd' ? 0 : 1;

@@ -5,7 +5,10 @@ export interface DropResult { command?: GameCommand; event?: DraftEvent; reason?
 const invalid = (reason = 'Drop on a highlighted destination.') => ({ reason });
 export function canDragCard(view: GameView, card: VisibleCard): boolean {
   if (view.result || card.controller !== view.decisionPlayer) return false;
-  if (view.phase === 'main') return card.zone === 'hand' || card.zone === 'field' || card.zone === 'trap';
+  if (view.phase === 'main') {
+    if (card.zone === 'hand' && card.definition.kind === 'yokai') return !actionUnavailableReason(view, card, 'play');
+    return card.zone === 'hand' || card.zone === 'field' || card.zone === 'trap';
+  }
   if (view.phase !== 'effect') return false;
   const source = effectSource(view);
   return source?.def !== 'ougi' && (card.id === source?.id || source?.def === 'boseki' && card.zone === 'graveyard');

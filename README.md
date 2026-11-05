@@ -4,11 +4,13 @@ A two-player implementation of Yokai 1504 with invite-only online rooms and loca
 
 ## Play online
 
-[Open the online game](https://yokai-1504-online.vandamm.workers.dev/). This branch adds a separate Cloudflare Worker with an authoritative, persistent game server. The main branch’s [GitHub Pages site](https://vandamm.github.io/yokai1504/) remains the local-testing version.
+[Open the online game](https://yokai-1504.vansach.me/). The original [workers.dev address](https://yokai-1504-online.vandamm.workers.dev/) also remains available. This branch adds a separate Cloudflare Worker with an authoritative, persistent game server. The main branch’s [GitHub Pages site](https://vandamm.github.io/yokai1504/) remains the local-testing version.
 
-Create an online table, enter your name, and send the invitation link to the second player. Each browser keeps its own private seat. Only your hand and trap are revealed. Live updates poll every two seconds while visible; pending turns, traps and effects persist when both players leave. Reopen the room link in the same browser to resume. The table keeps your side at the bottom throughout.
+The box-inspired welcome screen offers Start a game and Join a game. Enter your name to create a table, then send its invitation to the second player. Join accepts a pasted invitation; opening an invitation directly prepares the join form for you. Local testing and recent tables are below the online controls. Each browser keeps its own private seat. Only your hand and trap are revealed. Live updates poll every two seconds while visible; pending turns, traps and effects persist when both players leave. Reopen the room link in the same browser to resume. The table keeps your side at the bottom throughout.
 
 Treat the invitation as private: it grants the first guest the other seat. Once joined it cannot admit a different seat. Invitations are carried in URL fragments and removed after joining. Seat credentials stay in browser storage and Authorization headers; clearing browser data loses access. There are no accounts or seat-recovery emails yet.
+
+Browser seats are saved per domain. Use an existing game’s original room link to return to it; seats from workers.dev do not automatically transfer to vansach.me. New games and invitations use the address where you start them.
 
 Online Undo is immediate for your own actions, including End turn, until the opponent takes an action. Their first accepted action closes your previous undo window permanently, even if they undo that action. Free actions and trap responses count; automatic draws, polling and rejected commands do not. Full replay export is available only after the game finishes, because it includes both hands and deck order. Exporting permanently finalizes the online game and disables Undo for both players, including after a refresh or interrupted download. The replay remains downloadable again. Local testing retains instant undo and optional open hands. Choosing a new table leaves online rooms saved and listed under Recent online tables.
 
@@ -61,17 +63,21 @@ Drag yokai onto your field, spells onto the same field or your trap slot, and yo
 
 Tap the ghost soul token with a small plus in the next empty slot to add a soul. The visual token is small but its touch target is 44×44px. Sake uses the same controls to stage up to three allocations on either field; Jufu selects up to two targets; Resolve confirms either spell. Ougi selects donor then recipient directly on the field. Other effects also select their targets on the table. Trap response offers Activate trap or Keep hidden. Select a release yokai and choose Release a soul in its details, or use its field Release control. Boseki revives a graveyard card by selection or drag.
 
-Tap a visible card for image-left/text-right inspection, or hold Shift and hover on desktop. Current attack/souls remain on the field cards instead of being repeated in inspection. Open the top-right ☰ for history grouped by turn/player and its Table menu, which contains rules, replay import/export and game settings. Underlined history card names show a reference tooltip on hover or keyboard focus, or open details when tapped. Hand scroll arrows keep large hands reachable on phones. Space/Enter picks up and drops cards with the keyboard; Escape cancels.
+While choosing targets for a spell cast on your turn, Cancel spell restores its card and action, including when cast from your trap slot. It uses the same saved Undo checkpoint locally and online, and clears staged choices. Trap responses and release effects keep their existing Undo control.
+
+Tap a visible card for image-left/text-right inspection, or hold Shift and hover on desktop. Hovering over a hand card on desktop enlarges it; decks, traps, Supply and End turn also scale up for desktop layouts. A hand yokai cannot be picked up when your field is full or your main actions are spent. Current attack/souls remain on the field cards instead of being repeated in inspection. Open the top-right ☰ for history grouped by turn/player and its Table menu, which contains rules, replay import/export and game settings. Underlined history card names show a reference tooltip on hover or keyboard focus, or open details when tapped. Hand scroll arrows keep large hands reachable on phones. Space/Enter picks up and drops cards with the keyboard; Escape cancels a drag.
 
 ## Play
 
-Start Game prepares the table, shuffles both decks, deals four cards each, and takes the starting player's mandatory first draw. Drag cards to play or attack; tap a visible card to inspect it. Play cards and evoke souls up to a combined two times per main phase; releases and setting a trap have their own rules. Attack with one yokai or end the turn without attacking.
+Start Game prepares the table, shuffles both decks, deals four cards each, and takes the starting player's mandatory first draw. Drag cards to play or attack; tap a visible card to inspect it. Play cards and evoke souls up to a combined two times per main phase. Releasing a soul and setting a trap do not spend either of those two actions. Attack with one yokai or end the turn without attacking.
 
 Local play is for testing and has no pass screen or reveal step. Open hands is enabled by default and shows both hands and traps. Switching it off shows only the decision player’s hand and trap; the table stays visible when decisions change players. Neither option reveals deck order.
 
 Undo restores the last accepted action and all of its consequences, including draws, damage, costs, and turn/response changes. Repeat undo to go back further. Undo history and the match save automatically in this browser. Undo cannot erase information players already saw. Starting a new match replaces the current local save.
 
 ## Export and replay for debugging
+
+Public history hides routine draws and uses compact summon, attack, damage, destruction and spell icons. Soul changes use the original soul artwork. Card links stay underlined and inspectable, with green for your original cards and red for the opponent's. Ownership colors follow the original deck even after a control exchange; hover/focus labels also name the owner. Empty-deck damage and its cause remain visible. Existing saved histories recover owner references from accepted actions when those checkpoints are available.
 
 Choose **☰ → Table menu → Export replay & finalize** in a finished online game, or **Export replay** in local testing, to download a versioned JSON file containing the initial position, reproducible active command sequence, final position and accepted-action audit, including undo branches and mode changes. The file includes both hands and deck order.
 
@@ -83,7 +89,21 @@ Choose **Import replay** from setup or the table menu. Load the JSON file or pas
 - `src/session/` owns command IDs, monotonic match revisions, local saves, and undo checkpoints. Its asynchronous interface is the replacement point for an online service.
 - `src/ui/` renders views and submits commands. Normal player views exclude the opposing hand and unknown trap; the explicit local testing view reveals them.
 
-Online play runs the same rules on an authenticated authoritative server. Snapshots and command receipts persist atomically; only the requesting player’s view is returned. Revision checks and command IDs handle stale clients and retries. Polling supports live and correspondence play, and pending defender/effect decisions survive disconnection. The server enforces each player’s Undo window without an approval step. Accounts, notifications, public matchmaking and chat are outside this first online version.
+Online play runs the same rules on an authenticated authoritative server. Snapshots and command receipts persist atomically; only the requesting player’s view is returned. Revision checks and command IDs handle stale clients and retries. Polling supports live and correspondence play, and pending defender/effect decisions survive disconnection. The server enforces each player’s Undo window without an approval step. Accounts, public matchmaking and chat are outside this first online version.
+
+## Home Screen app and notifications
+
+After creating or joining an online game, notification settings open automatically unless this device is already enabled for that game. Close the panel to keep playing; it does not reopen on turns or reloads. Browser permission is requested only after tapping Enable.
+
+Open https://yokai-1504.vansach.me/ in Safari on iPhone, choose **Share → Add to Home Screen**, then open the new icon before starting or joining a game. On versions showing **Open as Web App**, leave it enabled. System notifications require iOS 16.4 or later. Desktop browsers can use their **Install app** option; installation is optional for desktop notifications.
+
+At an online table, tap the **bell → Enable notifications → Allow**. Enable alerts separately for each game and device. The same panel sends a test and turns alerts off for that game. Alerts cover your turn, trap/effect decisions, opponent joining and game results, including while the page is closed. They show public status only; tapping opens the table without exposing seat credentials or invite secrets.
+
+The installed app still needs internet for online games. The service worker handles notifications only and does not cache game state or API responses. Seats belong to the browser or installed app where you joined; Home Screen installation does not provide account-based recovery.
+
+The server requires a stable `WEB_PUSH_VAPID` secret containing JSON with `publicKey` (base64url raw P-256), `privateKey` (base64url JWK `d`) and `subject` (the app's HTTPS URL). Configure it using Wrangler's secret input or a protected `secret bulk` JSON file; never commit keys or rotate them without re-enabling existing device subscriptions. Local development reads ignored `.dev.vars`. The Worker stores per-seat subscriptions separately from replays, permits four devices per seat/game, and uses Durable Object alarms for delivery/retries. Pending alerts are replaced by subsequent game actions; immediate Undo cancels an unsent alert.
+
+Run `npm run test:push` for the real Worker runtime test with a simulated push provider. Actual permission prompts and system delivery also need a browser/device check.
 
 ## Rules notes
 

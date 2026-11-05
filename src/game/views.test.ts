@@ -24,6 +24,6 @@ describe('privacy projections',()=>{
   it('draw and trap history never contain hidden identities or card names',()=>{
     let s=createGame({seed:3}); const player=s.turnPlayer, spell=s.players[player].hand.find(id=>['sake','kozuchi','jufu','boseki','ougi','hamaya'].includes(s.cards[id].def));
     if(spell) s=applyCommand(s,player,{type:'setTrap',cardId:spell});
-    const text=s.history.join(' '); for(const p of s.players) for(const id of [...p.hand,...p.deck,...(p.trap?[p.trap]:[])]) {expect(text).not.toContain(id); expect(text).not.toContain(s.cards[id].def);}
+    const text=JSON.stringify(s.history); for(const p of s.players) for(const id of [...p.hand,...p.deck,...(p.trap?[p.trap]:[])]) {expect(text).not.toContain(id); expect(text).not.toContain(s.cards[id].def);}
   });
 });

@@ -34,6 +34,16 @@ it('asks for Ougi targets on the field without a second list of target buttons',
   expect(renderDraft([])).not.toContain('Drag Ougi');
 });
 
+it.each(['cast', 'trap', 'release'] as const)('only offers spell cancellation for an undoable voluntary cast (%s)', source => {
+  const view = position(), card = view.players[0].hand![0];
+  card.def = 'sake'; card.definition = CARDS.sake; card.zone = 'graveyard';
+  view.players[0].graveyard = [card]; view.phase = 'effect';
+  view.pending = { kind: 'effect', actor: 0, cardId: card.id, source, attack: null };
+  const markup = (onCancel?: () => void) => renderToStaticMarkup(<DecisionBar view={view} draft={emptyDraft()} busy={false} onDraft={() => {}} onCommand={() => {}} onDetails={() => {}} onCancel={onCancel} />);
+  expect(markup(() => {}).includes('Cancel spell')).toBe(source === 'cast');
+  expect(markup()).not.toContain('Cancel spell');
+});
+
 it.each([0, 1, 2])('shows the remaining main actions in the current decision after %i actions', used => {
   const view = position();
   view.actionsUsed = used;
@@ -49,6 +59,15 @@ it('keeps the count visible when card actions replace the tap prompt', () => {
   const html = render(view, view.players[0].hand![0].id);
   expect(html).not.toContain('Drag a card to play');
   expect(html).toContain('aria-label="2 main actions left"');
+});
+
+it.each(['cast', 'release'] as const)('keeps remaining actions visible while choosing targets for your own %s', source => {
+  const view = position();
+  view.actionsUsed = 1; view.phase = 'effect';
+  view.pending = { kind: 'effect', actor: 0, cardId: view.players[0].hand![0].id, source, attack: null };
+  const html = renderToStaticMarkup(<ActionBudget view={view} viewer={0} />);
+  expect(html).toContain('aria-label="1 main action left"');
+  expect(renderToStaticMarkup(<ActionBudget view={view} viewer={1} />)).toBe('');
 });
 
 it.each(['trap', 'effect'] as const)('does not attribute the attacker’s main actions to a defender resolving %s', phase => {

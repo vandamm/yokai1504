@@ -1,5 +1,6 @@
 import { CARDS } from './catalog';
 import { attackOf, RuleError } from './engine';
+import { historyText } from './history';
 import type { GameState, GameView, PlayerId, PlayerView, VisibleCard } from './types';
 
 function project(state:GameState, viewer:PlayerId|null):GameView {
@@ -15,7 +16,7 @@ function project(state:GameState, viewer:PlayerId|null):GameView {
       trap:p.trap ? (privateVisible ? visible(p.trap,player,'trap') : {hidden:true as const}) : null,
     } satisfies PlayerView;
   }) as [PlayerView,PlayerView];
-  return {rulesVersion:1,turn:state.turn,turnPlayer:state.turnPlayer,decisionPlayer:state.decisionPlayer,phase:state.phase,actionsUsed:state.actionsUsed,supply:state.supply,players,pending:structuredClone(state.pending),result:structuredClone(state.result),history:[...state.history]};
+  return {rulesVersion:1,turn:state.turn,turnPlayer:state.turnPlayer,decisionPlayer:state.decisionPlayer,phase:state.phase,actionsUsed:state.actionsUsed,supply:state.supply,players,pending:structuredClone(state.pending),result:structuredClone(state.result),history:state.history.map(historyText),historyEntries:structuredClone(state.history)};
 }
 export function viewForPlayer(state:GameState,player:PlayerId):GameView {
   if(player!==0 && player!==1) throw new RuleError('Choose a valid player.');

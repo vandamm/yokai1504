@@ -94,6 +94,17 @@ function effectDraft(view: GameView): TableDraft {
 function visibleTrap(trap: GameView['players'][number]['trap']): trap is VisibleCard { return !!trap && !('hidden' in trap); }
 
 describe('table decisions through LocalSession', () => {
+  it.each(['sake', 'jufu', 'boseki', 'ougi', 'hamaya'] as const)('cancels pending %s with the card, action and souls restored after reload', async def => {
+    const { storage, session, snapshot, sourceId } = await scenario(def);
+    const pending = await submit(session, snapshot, { type: 'play', cardId: sourceId });
+    expect(pending.view.phase).toBe('effect');
+    expect(pending.canUndo).toBe(true);
+    expect(pending.view.actionsUsed).toBe(1);
+    const restored = await session.undo(pending.revision);
+    expect(restored.view).toEqual(snapshot.view);
+    expect((await new LocalSession(storage).load())!.view).toEqual(snapshot.view);
+  });
+
   it.each(['sake', 'jufu', 'boseki', 'ougi', 'hamaya', 'karakasa-kozo', 'nekomata'] as const)('%s choices from the projected table resolve, undo and reload', async def => {
     const { storage, session, snapshot, sourceId } = await scenario(def);
     const source = [...(snapshot.view.players[0].hand ?? []), ...snapshot.view.players[0].field].find(card => card.id === sourceId)!;

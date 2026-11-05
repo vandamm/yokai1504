@@ -1,5 +1,5 @@
 import { CARDS, DECK } from './catalog';
-import type { Attack, CardInstance, GameCommand, GameState, PlayerId, PlayerState, SetupOptions } from './types';
+import type { Attack, CardInstance, GameCommand, GameState, HistoryPart, PlayerId, PlayerState, SetupOptions } from './types';
 
 type Source = 'cast' | 'trap' | 'release';
 export class RuleError extends Error {
@@ -10,6 +10,12 @@ function requireRule(condition: unknown, message: string): asserts condition { i
 function card(state: GameState, id: string): CardInstance {
   requireRule(typeof id === 'string' && Object.hasOwn(state.cards,id), 'Choose a valid card.');
   return state.cards[id];
+}
+function reference(state: GameState, id: string): HistoryPart {
+  const c = card(state, id); return { card: c.def, owner: c.owner };
+}
+function log(state: GameState, ...parts: HistoryPart[]): void {
+  state.history.push({ actor: state.decisionPlayer, parts });
 }
 function controller(state: GameState, id: string): PlayerId | null {
   for (const player of [0,1] as const) if (state.players[player].field.includes(id)) return player;
@@ -60,10 +66,10 @@ export function canActivate(state: GameState, id: string, source: Source): boole
   }
   return hasTargets(state,id,actor);
 }
-function damage(state: GameState, player: PlayerId, amount: number, reason: string): void {
+function damage(state: GameState, player: PlayerId, amount: number, reason: HistoryPart): void {
   if(state.result) return;
   state.players[player].health=Math.max(0,state.players[player].health-amount);
-  state.history.push(`${state.players[player].name} takes ${amount} damage (${reason}).`);
+  log(state, `${state.players[player].name} takes ${amount} damage (`, reason, ').');
   if(state.players[player].health===0) {
     const winner=other(player); state.result={winner,reason:'health reached zero'}; state.phase='finished'; state.pending=null; state.decisionPlayer=state.turnPlayer;
     state.history.push(`${state.players[winner].name} wins.`);
@@ -79,7 +85,7 @@ function beginMain(state: GameState): void {
   state.phase='main'; state.pending=null; state.decisionPlayer=state.turnPlayer; state.actionsUsed=0;
   state.history.push(`Turn ${state.turn}: ${state.players[state.turnPlayer].name}.`);
   for(const id of [...state.players[state.turnPlayer].field]) {
-    if(card(state,id).def==='tengu') damage(state,state.turnPlayer,1,'Tengu');
+    if(card(state,id).def==='tengu') damage(state,state.turnPlayer,1,reference(state,id));
     if(state.result) return;
   }
   draw(state,state.turnPlayer);
@@ -100,16 +106,16 @@ function toGrave(state: GameState, id: string): void {
 }
 function destroy(state: GameState, id: string): void {
   if(controller(state,id)===null) return;
-  state.history.push(`${CARDS[card(state,id).def].name} is destroyed.`); toGrave(state,id);
+  log(state, reference(state,id), ' is destroyed.'); toGrave(state,id);
 }
 function summon(state: GameState, id: string, actor: PlayerId): void {
   detach(state,id); const c=card(state,id); c.summonedTurn=state.turn; state.players[actor].field.push(id);
-  state.history.push(`${state.players[actor].name} summons ${CARDS[c.def].name}.`);
+  log(state, `${state.players[actor].name} summons `, reference(state,id), '.');
 }
 function battleDefeat(state: GameState, id: string): boolean {
   const c=card(state,id);
   if(c.def==='yuki-onna' && c.souls>0) {
-    c.souls-=1; state.supply+=1; state.history.push('Yuki-onna returns a soul to survive battle.'); return false;
+    c.souls-=1; state.supply+=1; log(state, reference(state,id), ' returns a soul to survive battle.'); return false;
   }
   destroy(state,id); return true;
 }
@@ -138,9 +144,9 @@ function resolveAttack(state: GameState, attack: Attack): void {
   if(aAttack>bAttack) damage(state,defender,aAttack-bAttack,'battle');
   if(bAttack>aAttack) damage(state,attackerController,bAttack-aAttack,'battle');
   if(state.result) return;
-  if(aRokuro && bDestroyed) { state.history.push('Rokurokubi draws for battle destruction.'); draw(state,attackerController); }
+  if(aRokuro && bDestroyed) { log(state, reference(state,a.id), ' draws for battle destruction.'); draw(state,attackerController); }
   if(state.result) return;
-  if(bRokuro && aDestroyed) { state.history.push('Rokurokubi draws for battle destruction.'); draw(state,defender); }
+  if(bRokuro && aDestroyed) { log(state, reference(state,b.id), ' draws for battle destruction.'); draw(state,defender); }
   if(state.result) return;
   if(aChochin) destroy(state,b.id);
   if(bChochin) destroy(state,a.id);
@@ -154,8 +160,8 @@ function finishEffect(state: GameState, attack: Attack|null): void {
 }
 function beginEffect(state: GameState, id: string, actor: PlayerId, source: Source, attack: Attack|null): void {
   const c=card(state,id);
-  if(source==='release') { c.souls-=1; state.supply+=1; state.history.push(`${state.players[actor].name} releases a soul from ${CARDS[c.def].name}.`); }
-  else { toGrave(state,id); state.history.push(`${state.players[actor].name} ${source==='trap'?'reveals':'casts'} ${CARDS[c.def].name}.`); }
+  if(source==='release') { c.souls-=1; state.supply+=1; log(state, `${state.players[actor].name} releases a soul from `, reference(state,id), '.'); }
+  else { toGrave(state,id); log(state, `${state.players[actor].name} ${source==='trap'?'reveals':'casts'} `, reference(state,id), '.'); }
   if(c.def==='kozuchi') { draw(state,actor); draw(state,actor); finishEffect(state,attack); return; }
   state.phase='effect'; state.decisionPlayer=actor; state.pending={kind:'effect',actor,cardId:id,source,attack};
 }
@@ -177,7 +183,7 @@ function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>,
     }
     requireRule(total<=3 && total<=state.supply,'Distribute no more than three available souls.');
     for(const {cardId:id,count} of allocations) card(state,id).souls+=count;
-    state.supply-=total; state.history.push(`Sake distributes ${total} souls.`);
+    state.supply-=total; log(state, reference(state,pending.cardId), ` distributes ${total} souls.`);
   } else {
     requireRule(allocations.length===0,'This effect uses target cards.');
     switch(def) {
@@ -196,20 +202,20 @@ function choose(state: GameState, command: Extract<GameCommand,{type:'choose'}>,
         requireRule(targets.every(id=>controller(state,id)!==null && !immune(state,id)),'Choose two yokai that spells can affect.');
         const a=card(state,from), b=card(state,to);
         requireRule(a.souls>0 && b.souls<CARDS[b.def].cap,'The source needs a soul and the destination needs room.');
-        a.souls-=1; b.souls+=1; state.history.push(`Ougi moves a soul from ${CARDS[a.def].name} to ${CARDS[b.def].name}.`); break;
+        a.souls-=1; b.souls+=1; log(state, reference(state,pending.cardId), ' moves a soul from ', reference(state,from), ' to ', reference(state,to), '.'); break;
       }
       case 'hamaya':
         requireRule(targets.length===1 && strongest(state).includes(targets[0]),'Choose one of the highest ATK yokai that spells can affect.'); destroy(state,targets[0]); break;
       case 'karakasa-kozo': {
         const selected=targets[0], id=selected==='trap:0' ? state.players[0].trap : selected==='trap:1' ? state.players[1].trap : selected;
         requireRule(targets.length===1 && id && state.players.some(p=>p.trap===id),'Choose one set spell trap.');
-        state.history.push(`Karakasa-kozo destroys ${CARDS[card(state,id).def].name}.`); toGrave(state,id); break;
+        log(state, reference(state,pending.cardId), ' destroys ', reference(state,id), '.'); toGrave(state,id); break;
       }
       case 'nekomata': {
         requireRule(targets.length===1 && state.players[other(actor)].field.includes(targets[0]),"Choose one opponent's yokai.");
         const yours=state.players[actor].field, theirs=state.players[other(actor)].field;
         const ownIndex=yours.indexOf(pending.cardId), enemyIndex=theirs.indexOf(targets[0]); requireRule(ownIndex>=0,'The releasing yokai must remain on your field.');
-        yours[ownIndex]=targets[0]; theirs[enemyIndex]=pending.cardId; state.history.push(`Nekomata exchanges control with ${CARDS[card(state,targets[0]).def].name}.`); break;
+        yours[ownIndex]=targets[0]; theirs[enemyIndex]=pending.cardId; log(state, reference(state,pending.cardId), ' exchanges control with ', reference(state,targets[0]), '.'); break;
       }
       default: throw new RuleError('This card has no pending choice.');
     }
@@ -271,7 +277,7 @@ export function applyCommand(state: GameState, actor: PlayerId, command: GameCom
     case 'evoke': {
       const c=card(next,command.cardId); requireRule(player.field.includes(c.id),'Choose a yokai on your field.');
       requireRule(next.actionsUsed<2,'You have used both play/evoke actions.'); requireRule(next.supply>0,'No shared souls remain.'); requireRule(c.souls<CARDS[c.def].cap,'That yokai is at its soul cap.');
-      c.souls+=1; next.supply-=1; next.actionsUsed+=1; next.history.push(`${player.name} evokes a soul onto ${CARDS[c.def].name}.`); break;
+      c.souls+=1; next.supply-=1; next.actionsUsed+=1; log(next, `${player.name} evokes a soul onto `, reference(next,c.id), '.'); break;
     }
     case 'release':
       requireRule(canActivate(next,command.cardId,'release'),'Choose a soul-equipped release yokai with a legal target.'); beginEffect(next,command.cardId,actor,'release',null); break;
@@ -284,7 +290,7 @@ export function applyCommand(state: GameState, actor: PlayerId, command: GameCom
       requireRule(!player.field.some(id=>card(next,id).def==='nurikabe' && card(next,id).summonedTurn===next.turn),'Nurikabe prevents your yokai from attacking this summon turn.');
       const enemy=next.players[other(actor)]; requireRule(enemy.field.length>0 ? typeof command.target==='string' && enemy.field.includes(command.target) : command.target===null,'Choose an opposing yokai, or attack directly when its field is empty.');
       const attack={attacker:command.attacker,target:command.target};
-      next.history.push(`${player.name} attacks with ${CARDS[card(next,attack.attacker).def].name}${attack.target ? ` against ${CARDS[card(next,attack.target).def].name}` : ' directly'}.`);
+      log(next, `${player.name} attacks with `, reference(next,attack.attacker), ...(attack.target ? [' against ', reference(next,attack.target)] : [' directly']), '.');
       if(enemy.trap) {
         next.phase='trap'; next.decisionPlayer=other(actor); next.pending={kind:'trap',actor:other(actor),...attack};
         // Recorded games may include the older pause for an unusable trap.

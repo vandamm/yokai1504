@@ -1,3 +1,4 @@
+import { historyText } from './history';
 import { describe, expect, it } from 'vitest';
 import { applyCommand, createGame, RuleError } from './engine';
 import type { CardDefId, GameCommand, GameState, PlayerId } from './types';
@@ -163,7 +164,7 @@ describe('lethal extra draws and pending attacks', () => {
     state.players[1].health = health;
     const finished = act(state, { type: 'play', cardId: spell });
     expectFinished(finished, 0);
-    expect(finished.history.filter(entry => entry.includes('could not draw'))).toHaveLength(health);
+    expect(finished.history.map(historyText).filter(entry => entry.includes('could not draw'))).toHaveLength(health);
     expect(finished.players[0].graveyard).toContain(spell);
     expect(finished.actionsUsed).toBe(1);
     expect(finished.turn).toBe(3);
@@ -178,7 +179,7 @@ describe('lethal extra draws and pending attacks', () => {
     const finished = act(state, { type: 'play', cardId: spell });
     expectFinished(finished, 0);
     expect(finished.players[0].hand).toEqual([remaining]);
-    expect(finished.history.filter(entry => entry.includes('could not draw'))).toHaveLength(1);
+    expect(finished.history.map(historyText).filter(entry => entry.includes('could not draw'))).toHaveLength(1);
   });
 
   it('Kozuchi cannot win through deck exhaustion while both requested cards still exist', () => {
@@ -204,8 +205,8 @@ describe('lethal extra draws and pending attacks', () => {
     expectFinished(finished, 1);
     expect(finished.players[1].health).toBe(1);
     expect(finished.players[1].graveyard).toContain(trap);
-    expect(finished.history.filter(entry => entry.includes('could not draw'))).toHaveLength(1);
-    expect(finished.history.some(entry => entry.includes('damage (direct attack)'))).toBe(false);
+    expect(finished.history.map(historyText).filter(entry => entry.includes('could not draw'))).toHaveLength(1);
+    expect(finished.history.map(historyText).some(entry => entry.includes('damage (direct attack)'))).toBe(false);
     expect(finished.turn).toBe(3);
   });
 
@@ -230,7 +231,7 @@ describe('lethal extra draws and pending attacks', () => {
     state.players[0].health = 3;
     const finished = act(state, { type: 'attack', attacker, target });
     expectFinished(finished, 1);
-    expect(finished.history.filter(entry => entry.includes('takes'))).toEqual([
+    expect(finished.history.map(historyText).filter(entry => entry.includes('takes'))).toEqual([
       'Player 1 takes 2 damage (battle).',
       'Player 1 takes 1 damage (Player 2 could not draw).',
     ]);
@@ -285,7 +286,7 @@ describe('documented immediate-end timing', () => {
     const finished = act(state, { type: 'attack', attacker, target });
     expectFinished(finished, 0);
     expect(finished.players[0].health).toBe(1);
-    expect(finished.history.filter(entry => entry === 'Rokurokubi draws for battle destruction.')).toHaveLength(1);
+    expect(finished.history.map(historyText).filter(entry => entry === 'Rokurokubi draws for battle destruction.')).toHaveLength(1);
   });
 
   it('Tengu lethal self-damage stops before mandatory draw, charging its controller', () => {
@@ -307,7 +308,7 @@ describe('documented immediate-end timing', () => {
     state.players[1].health = 1;
     const finished = act(state, { type: 'endTurn' });
     expectFinished(finished, 0);
-    expect(finished.history.filter(entry => entry.includes('damage (Tengu)'))).toHaveLength(1);
+    expect(finished.history.map(historyText).filter(entry => entry.includes('damage (Tengu)'))).toHaveLength(1);
   });
 
   it('no command is accepted after victory and rejected actions cannot mutate the result', () => {

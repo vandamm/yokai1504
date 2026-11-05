@@ -1,3 +1,86 @@
+# Larger forecast skull — 2026-11-04
+
+- Enlarged the white forecast skull from 120% to 160% of card width and moved its trap-uncertainty question mark beside the lower-right jaw. Actual death markers keep their previous size. Forecast damage remains numeric, without an HP label.
+- 370 tests, frontend/Worker type checks, production build and whitespace checks passed. No new tests for this CSS-only adjustment; browser and physical iPhone visuals were not checked.
+- Published version `46c06f45-4551-4430-97f5-c625f60edd3d`. Live HTML references the new release, and the served JavaScript and CSS match the tested build exactly.
+
+# Attack aiming and impact — 2026-11-04
+
+- Published version `1a0f0a12-8800-4666-aacd-d6a878ec766a` to the existing Worker and https://yokai-1504.vansach.me/.
+- Deployed yokai stay on the field while a thick red parabolic arrow follows the pointer from the exact initial press. The tail is horizontal, gaps have flat ends, and the smaller head follows the final tangent.
+- Lethal forecasts use large white skulls over translucent black card overlays; survivors have no marker. Health forecasts and trap uncertainty use only visible information.
+- Combat waits for trap resolution. The card stops at shallow edge contact; attack/counter strengths, health changes and death skulls appear at contact, with immediate return and no shake or hold. Boseki revival is staged before the strike and its casualties use the correct field geometry.
+- 370 tests across 30 files, frontend/Worker type checks, production build, deployment dry run and whitespace checks passed. Independent review found the Boseki case; its regression failed first and then passed with private player snapshots.
+- All 28 published static files match the local build byte for byte. Custom-domain HTML references the tested bundles; origin HTML matches exactly (Cloudflare adds its challenge script on the custom domain). A separate production test game passed private-seat checks, End turn, Undo and reload.
+- Pointer geometry, motion lifecycle and static rendering were tested without browser access. Browser interaction, visual layout and physical iPhone behavior were not verified in this run; on-device adjustment remains the next feedback step.
+
+# Published UI updates — 2026-11-04
+
+- Deployed all current changes to https://yokai-1504.vansach.me/ and the existing workers.dev address as version `0e4f0a10-4592-471b-92c5-302978d47a0a`.
+- Includes full-screen table/home backgrounds, health updates when damage animation starts, the original English rulebook link, named unfinished games as the main home action, an enlarged mobile trap drop target and Set trap in card details.
+- 358 tests, frontend/Worker type checks, production build and deployment dry run passed. All 27 fetched production assets match the tested build; live HTML references the new bundles and includes the teal document background and translucent status-bar setting.
+- A separate production test game verified creation, joining, private hands, End turn, Undo and reload. The public notification configuration endpoint responds successfully. Physical iPhone cutout rendering and touch ergonomics remain unverified.
+
+# Green/red player and card names — 2026-11-04
+
+- Card names now use a clear green (`#267a34`) for the viewer's cards and red (`#b32635`) for the opponent's. Player names use the same pair in log headings, messages, attack targets, damage reasons and turn summaries. Card inspection links retain their original ownership, even if a player's name matches a card.
+- Name matching treats punctuation literally and avoids matching inside longer words. Identical player names remain neutral in text logs where the seat cannot be distinguished reliably.
+- 361 tests across 29 files, frontend/Worker type checks, build and whitespace checks pass. Phone (390×844) and desktop (1280×800) browser checks confirm matching name/card colors and no document overflow. Green/red text contrast is 5.32:1 and 6.42:1 against the log background. [Phone screenshot](verification/player-name-colors-phone.jpg), [desktop screenshot](verification/player-name-colors-desktop.jpg). Physical-device testing was not repeated.
+- Deployed version `aebb9321-f5b9-41f5-95ef-6948509ef7f9` to the existing Worker/custom domain. Live JavaScript and CSS match the verified release exactly.
+
+# Compact public history — 2026-11-03
+
+- Routine draw messages are hidden; depleted-deck damage and its cause remain visible. Summons use ⛩️, attacks use ⚔️, damage uses a signed health amount and ❤️, destruction uses 💀, and cast/revealed spells use 💥. Soul changes use the original soul icon. Trap-setting messages keep the player's name; final sentence periods are removed. Turn grouping remains unchanged.
+- Card names retain inspection links/tooltips and are green for the viewer's original cards and red for the opponent's, with owner labels for accessibility. References are recorded from the actual card instance, so identical names, Nekomata exchanges, revival and destruction preserve original ownership. Hidden draws and set traps disclose no private card references.
+- Existing text histories recover their references from matching saved transitions. History text remains available separately in views for existing clients and animations. Legacy replays still import; metadata is validated, normal Undo/reload works, and incorrect Undo-branch receipts cannot supply history references. No rules or costs changed.
+- 352 tests across 29 files, frontend/Worker type checks, production build and whitespace checks pass. The HTTP game test completed after 70 actions with private seats, stale/retry handling, Undo, victory and finalized replay import verified.
+- Browser checks at 390×844 and 1280×800 show the compact log without document overflow. Original soul artwork is visible on the light background; Jufu's hover tooltip works. Card-name colors have 6.83:1 and 6.36:1 contrast against the surface. No console warnings/errors. [Phone screenshot](verification/compact-history-phone.jpg), [desktop screenshot](verification/compact-history-desktop.jpg). Physical-device testing was not repeated.
+- Deployed version `cd2f6c8b-76a4-4e76-96ac-c64bd45c9e19` to the existing Worker and custom domain. Live asset references and a fresh online game's persistent card-owner records were verified; the plain-text history projection remains available for existing clients.
+
+# Mirrored desktop health — 2026-11-03
+
+- Desktop health displays share the left column and 36px number size: opponent at the upper-left, local player at the lower-left. The opponent label keeps its natural height. The change is confined to the existing 700px desktop media query.
+- Browser checks at 700×640 and 1280×800 place both health displays at x=24 with matching 80×40px health areas and no document overflow; the opponent label remains readable. At 390×844, both remain centered at x=163 with 64px-wide health areas. Build, frontend/Worker type checks and whitespace checks pass. No new tests for this CSS-only positioning change; physical-phone testing was not repeated. [Desktop screenshot](verification/desktop-mirrored-health.jpg).
+- Deployed version `a378c69d-aedb-46a2-ad5e-e5f1b03dcd39` to the existing Worker and custom domain.
+
+# Nekomata action-count clarification — 2026-11-03
+
+- Verified the reported sequence against the English rulebook's starred Main Phase actions and the designer's [rules explanation](https://gamemarket.jp/blog/196520): playing a card and evoking a soul share the two-action limit; releasing a soul does not spend one. Starting with two actions, evoking once and using Nekomata's exchange correctly leaves one action. No action refund was found in the engine.
+- The action indicator disappeared during target selection and returned afterwards. It now remains visible during the turn player's voluntary spell/release decisions, while staying hidden during opposing trap responses. Engine tests cover evoking and exchanging with either one or two actions already spent by the evoke step; neither release nor exchange changes the spent count. Rendering tests cover the stable count during cast/release and the opposing viewer's privacy.
+- 333 tests across 28 files, frontend/Worker checks, production build and whitespace checks pass. This verifies state transitions and rendered controls; physical-phone behavior was not retested.
+- Deployed version `55ca997f-e3e9-4a88-9d9f-05af51045254` to the existing Worker/custom domain; the live frontend matches the tested bundle exactly.
+
+# Notification offer after creating/joining — 2026-11-03
+
+- Creating or joining an online table offers notification setup after the seat is successfully established. The check uses browser permission, its subscription and the server's per-game registration; already-enabled devices skip the offer. Unsupported/blocked browsers receive the existing installation/settings guidance. No browser permission is requested automatically, and failed status checks keep setup available without failing game entry.
+- The check runs only for successful Create/Join actions, not polling, Undo, local testing or resumed tables. A late result is ignored if the player has moved to another game. Browser checks verified automatic offers after creation and invitation joining, dismissal, and no repeated offer after reload.
+- 329 tests across 28 files, frontend/Worker checks, production build and whitespace checks pass in the new checkout. This includes six notification-offer cases; the old checkout's unrelated untracked UX-review prototype tests were not imported. Physical iPhone and system push delivery were not retested.
+- Deployed version `3bdc80a0-913c-49be-b422-f489b1532eba` to the existing Worker and custom domain. Live creation automatically opened the ready-to-enable panel at 390×844 without overflow or console warnings/errors. [Phone screenshot](verification/notification-offer-phone.jpg).
+
+# Home Screen app and opt-in Web Push — 2026-11-03
+
+- Added a standalone manifest, 192/512px app icons and 180px Apple touch icon, safe-area padding, installation help and an online-table notification bell. iPhone requires Home Screen installation and iOS 16.4+; permission is requested only after tapping Enable. Preferences are per game/device and do not affect the game revision or Undo window.
+- Push contains public decision status and the credential-free room URL. Subscriptions are authenticated, strictly validated, limited to known push-provider HTTPS endpoints and four devices per seat. Redirects are not followed. No subscriptions or keys enter game snapshots or replay exports.
+- Game mutation, notification outbox and alarm scheduling persist together. Delivery uses encrypted aes128gcm/VAPID, durable retry, expired-endpoint cleanup and stable notification tags. Immediate Undo clears queued alerts. The service worker always displays a visible notification and focuses the matching table or opens another window; it does not cache gameplay/API responses.
+- 336 tests across 28 files, frontend/Worker checks and production build pass. Real workerd integration covers authorization, seat ownership, device cap, command retries, encrypted delivery, restart/retry, expired endpoints and Undo cancellation. A separate HTTP game finished after 75 actions, with private seats, one-use invite, stale/retry checks, Undo and finalized replay verified.
+- The notification panel and expanded install help fit 390×844, 360×640 and 1440×900 browser viewports without document overflow. Native permission acceptance, actual push-provider delivery and physical iPhone Home Screen behavior remain unverified; these are separate from the simulated-provider runtime checks.
+- Deployed version `f28db202-7c3e-45ff-ab66-afcd9aff9e2d` to https://yokai-1504.vansach.me/ and the existing workers.dev address. Live manifest, service worker and all app icons exactly match the tested build; HTML references the tested frontend bundle and includes the install links (Cloudflare adds its own script). The public-key endpoint returns only the public key with no-store. Live browser creation and the ready-to-enable bell panel work without console warnings/errors. Screenshot: [phone notification settings](verification/notifications-phone.jpg).
+
+# Dedicated game domain — 2026-11-03
+
+- Connected `yokai-1504.vansach.me` as a custom domain for the existing `yokai-1504-online` Worker. The original workers.dev address remains enabled, with the same game storage. No routes or DNS changes were made to `apps.vansach.me`.
+- Deployed version `9fdfa086-8577-452a-b7b5-64983545b1f6`; 318 tests, frontend/Worker checks, build, regenerated binding types and deployment dry run pass. The final change only adds the dedicated domain and explicitly retains workers.dev.
+- Authoritative DNS and 1.1.1.1 return the Cloudflare addresses. HTTPS certificate verification, exact frontend asset comparison, online creation/join, private hands, End turn and Undo pass at the new hostname using its published address. The original URL also returns 200.
+- The local resolver cached the previously absent hostname (about 24 minutes remaining when checked), so ordinary browser navigation is still waiting for that cache to expire. Verification used a request-scoped DNS override with certificate checks enabled; system DNS settings were unchanged. Browser seats remain separate per domain; existing games need their original room links.
+
+# Welcome screen, spell cancellation and desktop controls — 2026-11-03
+
+- The welcome screen follows the box’s turquoise, white lettering and red Chochin-kozo illustration, reusing bundled card art. Start/Join share the name field; direct invitations prepare the join form without exposing their private token in page text. Invalid pasted invitations show an explanation. Local testing and recent tables remain available.
+- Cancel spell reuses the saved Undo checkpoint while choosing targets for a voluntary cast, returning the card and action and clearing staged choices. Tests cover five pending spells, persistence, casting from hand/trap online and rejection of the other player’s Undo. Browser checks cancelled a partially allocated Sake locally and Jufu online, with restored actions/cards visible to both seats.
+- Desktop decks/traps, Supply, soul tokens and End turn scale up starting at 700px. Hovering a hand card shows a 200px preview. A hand yokai cannot be picked up with three yokai on the field or no main actions; spells can still be set freely. Actual pointer dragging verified the full-field block; hover was visually verified.
+- Full-board checks at 360/390/700/994/1280/1440px found no horizontal overflow or card/control overlap; soul hit targets stayed 44px. Welcome checks at 320/390/700/760/994/1440px found no horizontal overflow, with 52px submit buttons. Screenshots were inspected at phone and desktop sizes; small landing text has at least 4.5:1 contrast. Local setup dealt 4/5 cards, 15 health and two actions; online creation and invitation joining worked through separate browser origins.
+- 318 tests across 26 files, frontend/Worker TypeScript checks, production build, deployment dry run and whitespace checks pass. Deployed to https://yokai-1504-online.vandamm.workers.dev/ as version `19b53c22-adfe-45fa-ae77-221cae304071`. The live welcome screen loads without console warnings/errors, and its JavaScript/CSS match the tested build byte for byte. No full production-game or physical-phone check in this pass.
+
 # Continuous sides and empty-field attacks — 2026-10-30
 
 - The acting side has one uninterrupted tint from the center divider through the field and hand, including the battlefield gutters. Separate edge lines are removed. Both the near side on a 375 × 667 phone viewport and the far side in a 1440 × 900 online viewer were visually checked.

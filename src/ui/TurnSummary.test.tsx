@@ -3,12 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createGame } from '../game/engine';
 import { viewForPlayer } from '../game/views';
 import { TurnSummary } from './App';
+const text = (html: string) => html.replace(/<[^>]*>/g, '');
 
 it('names the turn owner from each online seat and in local testing', () => {
   const view = viewForPlayer(createGame({ seed: 45, names: ['Alex', 'Poli'], startingPlayer: 0 }), 0);
   expect(renderToStaticMarkup(<TurnSummary view={view} viewer={0} openHands={false} />)).toContain('Your turn');
-  expect(renderToStaticMarkup(<TurnSummary view={view} viewer={1} openHands={false} />)).toContain('Alex’s turn');
-  expect(renderToStaticMarkup(<TurnSummary view={view} openHands />)).toContain('Alex’s turn');
+  const opponent = renderToStaticMarkup(<TurnSummary view={view} viewer={1} openHands={false} />);
+  expect(text(opponent)).toContain('Alex’s turn');
+  expect(opponent).toContain('data-player="0" data-affiliation="opponent"');
+  expect(text(renderToStaticMarkup(<TurnSummary view={view} openHands />))).toContain('Alex’s turn');
 });
 
 it('keeps the turn owner visible when the opponent must respond or finish the attack', () => {
@@ -17,11 +20,12 @@ it('keeps the turn owner visible when the opponent must respond or finish the at
   for (const phase of ['trap', 'effect', 'turnEnd'] as const) {
     view.phase = phase;
     const responder = renderToStaticMarkup(<TurnSummary view={view} viewer={1} openHands={false} />);
-    expect(responder).toContain('Alex’s turn');
+    expect(text(responder)).toContain('Alex’s turn');
     expect(responder).toContain(phase === 'trap' ? 'Your trap response' : phase === 'effect' ? 'Resolve your effect' : 'Attack complete · End the turn when ready');
     const attacker = renderToStaticMarkup(<TurnSummary view={view} viewer={0} openHands={false} />);
     expect(attacker).toContain('Your turn');
-    expect(attacker).toContain('Waiting for Poli');
+    expect(text(attacker)).toContain('Waiting for Poli');
+    expect(attacker).toContain('data-player="1" data-affiliation="opponent"');
   }
 });
 
@@ -30,6 +34,7 @@ it('shows a finished result without calling it anyone’s turn', () => {
   view.phase = 'finished';
   view.result = { winner: 1, reason: 'Health depleted' };
   const html = renderToStaticMarkup(<TurnSummary view={view} viewer={0} openHands={false} />);
-  expect(html).toContain('Poli wins');
+  expect(text(html)).toContain('Poli wins');
+  expect(html).toContain('data-player="1" data-affiliation="opponent"');
   expect(html).not.toContain('Your turn');
 });

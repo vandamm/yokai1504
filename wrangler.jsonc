@@ -3,6 +3,11 @@
   "name": "yokai-1504-online",
   "main": "worker.ts",
   "compatibility_date": "2026-10-29",
+  "workers_dev": true,
+  "secrets": { "required": ["WEB_PUSH_VAPID"] },
+  "routes": [
+    { "pattern": "yokai-1504.vansach.me", "custom_domain": true }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.1,

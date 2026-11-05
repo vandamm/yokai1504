@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "Yokai 1504",
+  "short_name": "Yokai 1504",
+  "description": "A two-player duel of yokai, spells and souls.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#599e97",
+  "theme_color": "#599e97",
+  "icons": [
+    { "src": "icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

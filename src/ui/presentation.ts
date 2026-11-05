@@ -1,6 +1,12 @@
 import type { GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import { allVisible } from './interaction';
-export interface VisualEvent { kind: 'attack' | 'death' | 'move' | 'draw' | 'damage'; from: string; to: string; card?: VisibleCard; seat?: PlayerId; amount?: number; }
+export interface VisualEvent { kind: 'attack' | 'death' | 'move' | 'draw' | 'damage'; from: string; to: string; card?: VisibleCard; targetCard?: VisibleCard; seat?: PlayerId; amount?: number; }
+export function playbackView(before: GameView, after: GameView): GameView {
+  return { ...before, players: [
+    { ...before.players[0], health: after.players[0].health },
+    { ...before.players[1], health: after.players[1].health },
+  ] };
+}
 export function transitionEvents(before: GameView, after: GameView, command?: GameCommand, battleView?: GameView): VisualEvent[] {
   const events: VisualEvent[] = [], old = allVisible(before);
   const combatCards = allVisible(battleView ?? before);
@@ -16,12 +22,15 @@ export function transitionEvents(before: GameView, after: GameView, command?: Ga
     }
   }
   const cancelled = history.includes('The declared attack is cancelled.');
-  if (attack && !cancelled && (command?.type === 'attack' || after.phase === 'turnEnd' || after.phase === 'finished')) {
+  if (attack && !cancelled && !after.pending && (after.phase === 'turnEnd' || after.phase === 'finished' || after.turn > before.turn)) {
     const card = combatCards.find(c => c.id === attack.attacker);
-    if (card) events.push({ kind: 'attack', card, from: card.id, to: attack.target ?? `health:${before.turnPlayer === 0 ? 1 : 0}` });
+    const opponent = card?.controller === 0 ? 1 : 0;
+    const targetCard = attack.target ? combatCards.find(c => c.id === attack.target && c.zone === 'field') : (battleView ?? before).players[opponent].field[0];
+    if (card) events.push({ kind: 'attack', card, targetCard, from: card.id, to: targetCard?.id ?? `health:${opponent}` });
   }
   for (const player of before.players) {
-    for (const card of player.field) {
+    const revived = battleView?.players[player.id].field.filter(card => !old.some(previous => previous.id === card.id && previous.zone === 'field')) ?? [];
+    for (const card of [...player.field, ...revived]) {
       const to = after.players.flatMap(p => p.field).find(c => c.id === card.id);
       if (!to && after.players.some(p => p.graveyard.some(c => c.id === card.id))) events.push({ kind: 'death', card: combatCards.find(c => c.id === card.id && c.zone === 'field') ?? card, from: card.id, to: `graveyard:${card.owner}` });
       if (to && to.controller !== card.controller) events.push({ kind: 'move', card, from: card.id, to: `field:${to.controller}:${after.players[to.controller].field.findIndex(c => c.id === card.id)}` });
@@ -30,7 +39,7 @@ export function transitionEvents(before: GameView, after: GameView, command?: Ga
     if (!command) {
       for (const card of changed.field) {
         const previous = old.find(previous => previous.id === card.id);
-        if (previous?.zone !== 'field') events.push({ kind: 'move', card, from: `${previous?.zone === 'graveyard' ? 'graveyard' : 'hand'}:${card.owner}`, to: `field:${seat}:${changed.field.findIndex(c => c.id === card.id)}` });
+        if (previous?.zone !== 'field' && !battleView?.players[seat].field.some(staged => staged.id === card.id)) events.push({ kind: 'move', card, from: `${previous?.zone === 'graveyard' ? 'graveyard' : 'hand'}:${card.owner}`, to: `field:${seat}:${changed.field.findIndex(c => c.id === card.id)}` });
       }
       for (const card of changed.graveyard) {
         const previous = old.find(previous => previous.id === card.id);

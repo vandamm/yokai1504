@@ -104,3 +104,44 @@ it('requests replay export as an authenticated state-changing operation', async 
   expect(JSON.parse(await session.exportReplay())).toEqual(file);
   expect(fetcher).toHaveBeenLastCalledWith('/api/matches/room-a/replay',expect.objectContaining({method:'POST',body:'{}',headers:expect.objectContaining({Authorization:'Bearer private-seat'})}));
 });
+
+it('reads named recent games with each saved seat without switching the current game', async () => {
+  const storage = memory();
+  const active = snapshot(3); active.view.players[1].name = 'Poli';
+  const finished = { ...snapshot(5), matchId: 'room-b', viewer: 1 as const };
+  finished.view = viewForPlayer(createGame({ seed: 42, names: ['Alex', 'Poli'] }), 1);
+  finished.view.result = { winner: 0, reason: 'Health reached zero.' };
+  const fetcher = vi.fn(async (url: string) => response(url.endsWith('room-b') ? finished : active));
+  const session = new OnlineSession(storage, fetcher);
+  storage.setItem('yokai-1504.online-seat.v1.room-a', JSON.stringify({ token: 'seat-a' }));
+  storage.setItem('yokai-1504.online-seat.v1.room-b', JSON.stringify({ token: 'seat-b' }));
+  await session.load('room-a');
+  storage.setItem('yokai-1504.online-rooms.v1', JSON.stringify(['room-b', 'room-a']));
+  const games = await session.recentGames();
+  expect(games).toEqual([
+    { room: 'room-b', opponent: 'Alex', status: 'finished', turn: 1, yourTurn: false },
+    { room: 'room-a', opponent: 'Poli', status: 'active', turn: 1, yourTurn: active.view.decisionPlayer === 0 },
+  ]);
+  expect(fetcher).toHaveBeenCalledWith('/api/matches/room-b', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer seat-b' }) }));
+  expect(session.rooms()).toEqual(['room-b', 'room-a']);
+  expect((await session.getSnapshot()).matchId).toBe('room-a');
+  expect(fetcher).toHaveBeenLastCalledWith('/api/matches/room-a', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer seat-a' }) }));
+});
+
+it('keeps unavailable saved games reachable while finding other unfinished games', async () => {
+  const storage = memory();
+  storage.setItem('yokai-1504.online-rooms.v1', JSON.stringify(['offline', 'waiting', 'missing']));
+  storage.setItem('yokai-1504.online-seat.v1.offline', JSON.stringify({ token: 'offline-seat' }));
+  storage.setItem('yokai-1504.online-seat.v1.waiting', JSON.stringify({ token: 'waiting-seat' }));
+  const fetcher = vi.fn(async (url: string) => {
+    if (url.endsWith('offline')) throw new TypeError('offline');
+    return response({ ...snapshot(), matchId: 'waiting', waitingForOpponent: true });
+  });
+  const session = new OnlineSession(storage, fetcher);
+  const games = await session.recentGames();
+  expect(games.map(game => [game.room, game.status, game.opponent])).toEqual([
+    ['offline', 'unavailable', null], ['waiting', 'waiting', null], ['missing', 'unavailable', null],
+  ]);
+  expect(session.rooms()).toEqual(['offline', 'waiting', 'missing']);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
