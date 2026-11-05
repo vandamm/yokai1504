@@ -48,6 +48,74 @@ async function battleFixture(trap: boolean) {
 }
 
 describe('LocalSession', () => {
+  it('keeps AI matches private for each seat, including after resuming and undoing AI replies', async () => {
+    const storage = new MemoryStorage(), session = new LocalSession(storage, () => 'match-one');
+    const initial = await session.start({ seed: 42, startingPlayer: 0, aiPlayer: 1 });
+    expect(initial.aiPlayer).toBe(1);
+    expect(initial.view.players[0].hand).toHaveLength(5);
+    expect(initial.view.players[1].hand).toBeNull();
+    const aiTurn = await submit(session, 0);
+    expect(aiTurn.view.players[0].hand).not.toBeNull();
+    expect(aiTurn.view.players[1].hand).toBeNull();
+    const aiView = await session.getAiView();
+    expect(aiView.players[0].hand).toBeNull();
+    expect(aiView.players[1].hand).toHaveLength(5);
+    expect(await new LocalSession(storage).load()).toEqual(aiTurn);
+    await expect(session.setOpenHands(true)).rejects.toThrow(/AI/i);
+    await submit(session, 1, 'ai-end', { type: 'endTurn' }, 1);
+    const undone = await session.undo(2);
+    expect(undone.view).toEqual(initial.view);
+    expect(undone.canUndo).toBe(false);
+    await expect(session.getAiView()).rejects.toThrow(/decision/i);
+  });
+
+  it('rejects exposed hands and invalid AI seats without replacing the save', async () => {
+    const { session, storage } = await begin();
+    const raw = storage.value;
+    await expect(session.start({ seed: 1, aiPlayer: 1, openHands: true })).rejects.toThrow(/AI/i);
+    await expect(session.start({ seed: 1, aiPlayer: 2 as PlayerId })).rejects.toThrow(/AI/i);
+    expect(storage.value).toBe(raw);
+  });
+
+  it('does not offer Undo for the AI opening and imports AI replays as manual games', async () => {
+    const storage = new MemoryStorage(), session = new LocalSession(storage, () => 'match-one');
+    await session.start({ seed: 42, startingPlayer: 1, aiPlayer: 1 });
+    const next = await submit(session, 0, 'ai-opening', { type: 'endTurn' }, 1);
+    expect(next.canUndo).toBe(false);
+    await expect(session.undo(1)).rejects.toThrow(/player action/i);
+    const replay = await session.exportReplay();
+    const imported = await new LocalSession(new MemoryStorage()).importReplay(replay);
+    expect(imported.aiPlayer).toBeUndefined();
+    expect(imported.view.turn).toBe(next.view.turn);
+    expect(imported.canUndo).toBe(true);
+    const saved = JSON.parse(storage.value!);
+    saved.openHands = true;
+    storage.value = JSON.stringify(saved);
+    await expect(new LocalSession(storage).load()).rejects.toThrow(/AI/i);
+  });
+
+  it('keeps the human perspective in AI trap battle playback', async () => {
+    const storage = new MemoryStorage(), session = new LocalSession(storage, () => 'match-one');
+    await session.start({ seed: 42, startingPlayer: 0, aiPlayer: 1 });
+    const saved = JSON.parse(storage.value!), state = saved.state as GameState;
+    state.turn = 3;
+    const yuki = move(state, 'yuki-onna', 0, 'field'), kappa = move(state, 'kappa', 1, 'field');
+    state.cards[yuki].souls = 2; state.supply -= 2; move(state, 'ougi', 1, 'trap');
+    storage.value = JSON.stringify(saved); await session.load();
+    await submit(session, 0, 'attack', { type: 'attack', attacker: yuki, target: kappa });
+    await submit(session, 1, 'respond', { type: 'respond', activate: true }, 1);
+    const result = await submit(session, 2, 'transfer', { type: 'choose', targets: [yuki, kappa] }, 1);
+    expect(result.battleView!.players[0].hand).not.toBeNull();
+    expect(result.battleView!.players[1].hand).toBeNull();
+    expect(result.view.players[0].hand).not.toBeNull();
+    expect(result.view.players[1].hand).toBeNull();
+    const undone = await session.undo(3);
+    expect(undone.view.phase).toBe('main');
+    expect(undone.view.pending).toBeNull();
+    expect(undone.view.players[1].trap).toEqual({ hidden: true });
+    await expect(new LocalSession(new MemoryStorage()).importReplay(await session.exportReplay())).resolves.toBeTruthy();
+  });
+
   it('keeps a trap battle preview separate from the saved result, including after reload and Undo', async () => {
     const { session, storage } = await begin();
     const saved = JSON.parse(storage.value!), state = saved.state as GameState; state.turn = 3;

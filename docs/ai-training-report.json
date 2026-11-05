@@ -1,0 +1,168 @@
+{
+  "seed": 1504,
+  "initialWeights": {
+    "health": 5,
+    "field": 2.8,
+    "attack": 0.7,
+    "souls": 0.35,
+    "hand": 0.55,
+    "trap": 0.8,
+    "pressure": 0.5,
+    "tempo": 0.15,
+    "possession": 1,
+    "card:karakasa-kozo": 0,
+    "card:kappa": 0,
+    "card:nekomata": 0,
+    "card:zashiki-warashi": 0,
+    "card:chochin-kozo": 0,
+    "card:rokurokubi": 0,
+    "card:yuki-onna": 0.5,
+    "card:tengu": -0.7,
+    "card:nurikabe": 0,
+    "card:sake": 0,
+    "card:kozuchi": 0,
+    "card:jufu": 0,
+    "card:boseki": 0,
+    "card:ougi": 0,
+    "card:hamaya": 0
+  },
+  "search": {
+    "samples": 1,
+    "depth": 3,
+    "beamWidth": 2
+  },
+  "exploration": "mutated evaluation weights and sampled unseen cards; no random-move noise during scoring",
+  "population": 5,
+  "gamesPerCandidate": 16,
+  "trainingGames": 480,
+  "generations": [
+    {
+      "generation": 1,
+      "score": 0.625,
+      "changed": true,
+      "games": 80,
+      "unfinished": 0
+    },
+    {
+      "generation": 2,
+      "score": 0.625,
+      "changed": false,
+      "games": 80,
+      "unfinished": 0
+    },
+    {
+      "generation": 3,
+      "score": 0.625,
+      "changed": true,
+      "games": 80,
+      "unfinished": 0
+    },
+    {
+      "generation": 4,
+      "score": 0.6875,
+      "changed": true,
+      "games": 80,
+      "unfinished": 0
+    },
+    {
+      "generation": 5,
+      "score": 0.5625,
+      "changed": true,
+      "games": 80,
+      "unfinished": 0
+    },
+    {
+      "generation": 6,
+      "score": 0.75,
+      "changed": true,
+      "games": 80,
+      "unfinished": 0
+    }
+  ],
+  "selectionCandidates": [
+    {
+      "generation": 0,
+      "games": 16,
+      "wins": 8,
+      "losses": 8,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.5
+    },
+    {
+      "generation": 1,
+      "games": 16,
+      "wins": 8,
+      "losses": 8,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.5
+    },
+    {
+      "generation": 3,
+      "games": 16,
+      "wins": 9,
+      "losses": 7,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.5625
+    },
+    {
+      "generation": 4,
+      "games": 16,
+      "wins": 8,
+      "losses": 8,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.5
+    },
+    {
+      "generation": 5,
+      "games": 16,
+      "wins": 11,
+      "losses": 5,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.6875
+    },
+    {
+      "generation": 6,
+      "games": 16,
+      "wins": 8,
+      "losses": 8,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.5
+    }
+  ],
+  "selectedGeneration": 5,
+  "selectionGames": 96,
+  "validation": {
+    "games": 32,
+    "wins": 19,
+    "losses": 13,
+    "draws": 0,
+    "unfinished": 0,
+    "score": 0.59375
+  },
+  "promoted": true,
+  "benchmark": {
+    "versusBaseline": {
+      "games": 32,
+      "wins": 15,
+      "losses": 17,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 0.46875
+    },
+    "versusRandom": {
+      "games": 32,
+      "wins": 32,
+      "losses": 0,
+      "draws": 0,
+      "unfinished": 0,
+      "score": 1
+    }
+  },
+  "elapsedSeconds": 293
+}

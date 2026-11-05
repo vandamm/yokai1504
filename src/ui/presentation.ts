@@ -1,11 +1,16 @@
 import type { GameCommand, GameView, PlayerId, VisibleCard } from '../game/types';
 import { allVisible } from './interaction';
-export interface VisualEvent { kind: 'attack' | 'death' | 'move' | 'draw' | 'damage'; from: string; to: string; card?: VisibleCard; targetCard?: VisibleCard; seat?: PlayerId; amount?: number; }
-export function playbackView(before: GameView, after: GameView): GameView {
-  return { ...before, players: [
-    { ...before.players[0], health: after.players[0].health },
-    { ...before.players[1], health: after.players[1].health },
-  ] };
+export interface VisualEvent { kind: 'attack' | 'death' | 'move' | 'draw' | 'damage' | 'reveal'; from: string; to: string; card?: VisibleCard; targetCard?: VisibleCard; seat?: PlayerId; amount?: number; declaration?: boolean; }
+export function playbackView(before: GameView, after: GameView, showDamage = true): GameView {
+  const publicCards = allVisible(after);
+  return { ...before, players: before.players.map((player, seat) => {
+    const next = after.players[seat];
+    return { ...player, health: showDamage ? next.health : player.health,
+      handCount: Math.min(player.handCount, next.handCount - Math.max(0, player.deckCount - next.deckCount)),
+      hand: player.hand?.filter(card => next.hand ? next.hand.some(other => other.id === card.id) : !publicCards.some(other => other.id === card.id && other.zone !== 'hand')) ?? null,
+      trap: player.trap && !next.trap ? null : player.trap,
+    };
+  }) as GameView['players'] };
 }
 export function transitionEvents(before: GameView, after: GameView, command?: GameCommand, battleView?: GameView): VisualEvent[] {
   const events: VisualEvent[] = [], old = allVisible(before);
@@ -22,11 +27,12 @@ export function transitionEvents(before: GameView, after: GameView, command?: Ga
     }
   }
   const cancelled = history.includes('The declared attack is cancelled.');
-  if (attack && !cancelled && !after.pending && (after.phase === 'turnEnd' || after.phase === 'finished' || after.turn > before.turn)) {
+  const declaration = before.phase === 'main' && after.phase === 'trap';
+  if (attack && !cancelled && (declaration || !after.pending && (after.phase === 'turnEnd' || after.phase === 'finished' || after.turn > before.turn))) {
     const card = combatCards.find(c => c.id === attack.attacker);
     const opponent = card?.controller === 0 ? 1 : 0;
     const targetCard = attack.target ? combatCards.find(c => c.id === attack.target && c.zone === 'field') : (battleView ?? before).players[opponent].field[0];
-    if (card) events.push({ kind: 'attack', card, targetCard, from: card.id, to: targetCard?.id ?? `health:${opponent}` });
+    if (card) events.push({ kind: 'attack', card, targetCard, from: card.id, to: targetCard?.id ?? `health:${opponent}`, ...(declaration ? { declaration: true } : {}) });
   }
   for (const player of before.players) {
     const revived = battleView?.players[player.id].field.filter(card => !old.some(previous => previous.id === card.id && previous.zone === 'field')) ?? [];
@@ -36,14 +42,16 @@ export function transitionEvents(before: GameView, after: GameView, command?: Ga
       if (to && to.controller !== card.controller) events.push({ kind: 'move', card, from: card.id, to: `field:${to.controller}:${after.players[to.controller].field.findIndex(c => c.id === card.id)}` });
     }
     const seat = player.id, changed = after.players[seat];
-    if (!command) {
+    if (!command || before.players[before.decisionPlayer].hand === null) {
       for (const card of changed.field) {
         const previous = old.find(previous => previous.id === card.id);
         if (previous?.zone !== 'field' && !battleView?.players[seat].field.some(staged => staged.id === card.id)) events.push({ kind: 'move', card, from: `${previous?.zone === 'graveyard' ? 'graveyard' : 'hand'}:${card.owner}`, to: `field:${seat}:${changed.field.findIndex(c => c.id === card.id)}` });
       }
       for (const card of changed.graveyard) {
         const previous = old.find(previous => previous.id === card.id);
-        if (!previous || previous.zone === 'hand' || previous.zone === 'trap') events.push({ kind: 'move', card, from: `${previous?.zone === 'trap' || player.trap && 'hidden' in player.trap && !changed.trap ? 'trap' : 'hand'}:${card.owner}`, to: `graveyard:${seat}` });
+        const fromTrap = previous?.zone === 'trap' || player.trap && 'hidden' in player.trap && !changed.trap;
+        const reveal = fromTrap && before.phase === 'trap' && before.pending?.actor === seat && player.trap && 'hidden' in player.trap;
+        if (!previous || previous.zone === 'hand' || previous.zone === 'trap') events.push({ kind: reveal ? 'reveal' : 'move', card, from: `${fromTrap ? 'trap' : 'hand'}:${card.owner}`, to: `graveyard:${seat}` });
       }
       if (!player.trap && changed.trap && 'hidden' in changed.trap) events.push({ kind: 'move', from: `hand:${seat}`, to: `trap:${seat}`, seat });
     }

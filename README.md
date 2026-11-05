@@ -2,6 +2,14 @@
 
 A two-player implementation of Yokai 1504 with invite-only online rooms and local testing. All cards and images are bundled; the running game does not need external services.
 
+## Play against AI
+
+Choose **Play AI** on the welcome screen. Your game saves on this device and resumes after reload. You stay at the bottom; the opponent handles its own turns, traps and effects. Undo rewinds its replies together with your last action. Thinking runs in a worker.
+
+The opponent knows the fifteen-card deck and searches card combinations using sampled possibilities for unseen cards. Its policy receives only its own private player view: your hand, hidden trap identity and both deck orders are excluded. Self-play uses the same restriction on every decision.
+
+Train again with `npm run train:ai`. The trainer starts from the bundled policy, explores mutated strategies, and plays paired seats against current and earlier policies. A separate selection bank picks a checkpoint; untouched validation games decide whether to retain it. Failed runs preserve the previous policy. It writes `src/ai/trained.json` and [the training report](docs/ai-training-report.json), including separate benchmarks and any unfinished matches. Options: `--seed 1504 --generations 6 --population 5 --games 16 --validation 32`. Game counts must be even. This is a small, local self-play search agent; its strength against experienced people still needs playtesting.
+
 ## Play online
 
 [Open the online game](https://yokai-1504.vansach.me/). The original [workers.dev address](https://yokai-1504-online.vandamm.workers.dev/) also remains available. This branch adds a separate Cloudflare Worker with an authoritative, persistent game server. The main branch’s [GitHub Pages site](https://vandamm.github.io/yokai1504/) remains the local-testing version.
@@ -55,11 +63,11 @@ Open the HTTP URL, not `index.html` directly. Keep the terminal server running w
 
 Run `npm run dev:lan` on your computer. Connect the phone to the same trusted Wi-Fi and open the **Network** URL printed by Vite, such as `http://192.168.1.98:5173/`. Keep the computer awake and the server running. This exposes the local development game to your LAN; it does not publish an online game. Matches are saved separately in each browser and origin.
 
-The table has fan hands at the top and bottom, three yokai per side, decks/graveyards at the left edge and traps at the right. Red heart/number health sits between each hand and field on phones; your health moves to bottom-left on desktop. Action pips sit beside your health. Supply is at the left end of the divider; Undo and End turn are at the right. End turn becomes green after both actions are spent or an attack is complete.
+The table has fan hands at the top and bottom, three yokai per side, decks/graveyards at the left edge and traps at the right. Red heart/number health sits between each hand and field on phones and desktop. Action pips sit beside your health. Supply is at the left end of the divider; Undo and End turn are at the right. End turn becomes green after both actions are spent. Battle completion ends the turn automatically after playback.
 
 Small aligned waves cover the table. The acting half is green for your decisions and red for the opponent’s, fading toward the divider. The waves animate once on entry; reduced motion disables this. Pending decisions, errors and notices overlay the board without moving the cards. Online seats keep the same side throughout, including trap responses.
 
-Drag yokai onto your field, spells onto the same field or your trap slot, and your field yokai onto an opposing yokai to attack. If the opposing field is empty, drop onto its highlighted play area or health to attack directly. Dragged cards disappear from their origin; previews retain live attack and physical soul counters. Yokai stay on the board immediately after dropping. Attacks, destruction and draws retain visible playback; End turn remains explicit.
+Drag yokai onto your field, spells onto the same field or your trap slot, and your field yokai onto an opposing yokai to attack. If the opposing field is empty, drop onto its highlighted play area or health to attack directly. Played cards leave their hands immediately; previews retain live attack and physical soul counters. Yokai stay on the board immediately after dropping. Attacks, destruction and draws retain visible playback. Enemy trap reveals enlarge at the center for one second before moving to the graveyard. Turn and result signs appear at the center and dismiss on tap or automatically.
 
 Tap the ghost soul token with a small plus in the next empty slot to add a soul. The visual token is small but its touch target is 44×44px. Sake uses the same controls to stage up to three allocations on either field; Jufu selects up to two targets; Resolve confirms either spell. Ougi selects donor then recipient directly on the field. Other effects also select their targets on the table. Trap response offers Activate trap or Keep hidden. Select a release yokai and choose Release a soul in its details, or use its field Release control. Boseki revives a graveyard card by selection or drag.
 

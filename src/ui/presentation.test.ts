@@ -23,6 +23,45 @@ it('updates health during playback while keeping the cards and phase before reso
   expect(before.players.map(player => player.health)).toEqual([15, 15]);
 });
 
+it('removes played hand cards immediately while keeping incoming draws until arrival', () => {
+  const state = createGame({ seed: 42, startingPlayer: 0 });
+  const before = viewForPlayer(state, 0);
+  const cardId = before.players[0].hand!.find(card => card.definition.kind === 'yokai')!.id;
+  const after = viewForPlayer(applyCommand(state, 0, { type: 'play', cardId }), 0);
+  const during = playbackView(before, after, false);
+  expect(during.players[0].handCount).toBe(before.players[0].handCount - 1);
+  expect(during.players[0].hand!.some(card => card.id === cardId)).toBe(false);
+  expect(during.players[0].field).toEqual(before.players[0].field);
+  const drawing = structuredClone(after); drawing.players[0].handCount += 2;
+  expect(playbackView(after, drawing).players[0].handCount).toBe(after.players[0].handCount);
+});
+
+it('removes a played draw spell before the drawn cards arrive for both private views', () => {
+  const state = createGame({ seed: 42, startingPlayer: 0 });
+  const spell = Object.values(state.cards).find(card => card.owner === 0 && card.def === 'kozuchi')!;
+  for (const zone of ['deck', 'hand'] as const) state.players[0][zone] = state.players[0][zone].filter(id => id !== spell.id);
+  state.players[0].hand.push(spell.id);
+  const next = applyCommand(state, 0, { type: 'play', cardId: spell.id });
+  for (const viewer of [0, 1] as const) {
+    const before = viewForPlayer(state, viewer), after = viewForPlayer(next, viewer);
+    expect(playbackView(before, after, false).players[0].handCount).toBe(before.players[0].handCount - 1);
+  }
+});
+
+it('stages a revealed enemy trap before its battle without exposing an unrevealed trap', () => {
+  const state = createGame({ seed: 42, startingPlayer: 0 }); state.turn = 3;
+  const attacker = Object.values(state.cards).find(card => card.owner === 0 && card.def === 'kappa')!;
+  const trap = Object.values(state.cards).find(card => card.owner === 1 && card.def === 'sake')!;
+  for (const player of state.players) for (const zone of ['deck', 'hand'] as const) player[zone] = player[zone].filter(id => ![attacker.id, trap.id].includes(id));
+  state.players[0].field = [attacker.id]; state.players[1].trap = trap.id;
+  const pending = applyCommand(state, 0, { type: 'attack', attacker: attacker.id, target: null });
+  const before = viewForPlayer(pending, 0);
+  const next = viewForPlayer(applyCommand(pending, 1, { type: 'respond', activate: true }), 0);
+  expect(transitionEvents(before, next, { type: 'respond', activate: true })).toContainEqual(expect.objectContaining({ kind: 'reveal', from: 'trap:1', to: 'graveyard:1', card: expect.objectContaining({ def: 'sake' }) }));
+  expect(playbackView(before, next, false).players[1].trap).toBeNull();
+  expect(transitionEvents(before, before)).not.toContainEqual(expect.objectContaining({ kind: 'reveal' }));
+});
+
 it('animates the attack and defeated Kappa using their post-trap live values', () => {
   vi.stubGlobal('CSS', { escape: (value: string) => value });
   const state = createGame({ seed: 42, startingPlayer: 0 }); state.turn = 3;
@@ -72,13 +111,31 @@ it('does not animate a battle while a trap effect is still pending or cancelled 
   const cancelled = structuredClone(before); cancelled.phase = 'turnEnd'; cancelled.history.push('The declared attack is cancelled.');
   expect(transitionEvents(before, cancelled, { type: 'respond', activate: true }).some(e => e.kind === 'attack')).toBe(false);
 });
-it('keeps the attack still while the defender is deciding whether to activate a trap', () => {
+it('shows an attack declaration before trap response without resolving a hit', () => {
+  vi.stubGlobal('CSS', { escape: (value: string) => value });
   const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
-  const attacker = { ...before.players[0].hand![0], zone: 'field' as const };
+  const attacker = { ...before.players[0].hand!.find(card => card.definition.kind === 'yokai')!, zone: 'field' as const };
+  before.players[0].hand = before.players[0].hand!.filter(card => card.id !== attacker.id);
   before.players[0].field = [attacker];
+  before.players[1].trap = { hidden: true };
   const pending = structuredClone(before);
-  pending.phase = 'trap'; pending.pending = { kind: 'trap', actor: 1, attacker: attacker.id, target: null };
-  expect(transitionEvents(before, pending, { type: 'attack', attacker: attacker.id, target: null }).some(event => event.kind === 'attack')).toBe(false);
+  pending.phase = 'trap'; pending.decisionPlayer = 1; pending.pending = { kind: 'trap', actor: 1, attacker: attacker.id, target: null };
+  const command = { type: 'attack' as const, attacker: attacker.id, target: null };
+  const events = transitionEvents(before, pending, command);
+  expect(events).toEqual([{ kind: 'attack', declaration: true, card: attacker, targetCard: undefined, from: attacker.id, to: 'health:1' }]);
+  expect(transitionEvents(before, pending)).toEqual(events);
+  const rect = { x: 10, y: 20, width: 90, height: 133 };
+  const html = renderToStaticMarkup(createElement(Playback, { events, geometry: { [attacker.id]: rect, 'health:1': rect }, onComplete() {} }));
+  expect(html).toContain('playback-attack-declaration');
+  expect(html).not.toContain('playback-impact');
+  expect(html).not.toContain('playback-death-marker');
+  const after = structuredClone(pending);
+  after.phase = 'turnEnd'; after.pending = null; after.players[1].health -= attacker.attack;
+  expect(transitionEvents(pending, after, { type: 'respond', activate: false })).toEqual(expect.arrayContaining([
+    expect.objectContaining({ kind: 'attack', from: attacker.id, to: 'health:1' }),
+    expect.objectContaining({ kind: 'damage', seat: 1, amount: attacker.attack }),
+  ]));
+  expect(transitionEvents(pending, after, { type: 'respond', activate: false }).find(event => event.kind === 'attack')).not.toHaveProperty('declaration');
 });
 it('stages a defender revived by Boseki at its field slot and includes its combat death', () => {
   vi.stubGlobal('CSS', { escape: (value: string) => value });
@@ -120,6 +177,22 @@ it('infers an opponent summon and attack from private snapshots without a fake c
   expect(transitionEvents(before, after)).toContainEqual(expect.objectContaining({ kind: 'move', from: 'hand:0', to: 'field:0:0', card: expect.objectContaining({ id: card.id }) }));
   const attacked = structuredClone(after); attacked.phase = 'turnEnd'; attacked.players[1].health -= card.attack; attacked.history.push(`${after.players[0].name} attacks with ${card.definition.name} directly.`);
   expect(transitionEvents(after, attacked)).toContainEqual(expect.objectContaining({ kind: 'attack', from: card.id, to: 'health:1' }));
+});
+
+it('animates commanded AI summons, spells and traps when the acting hand is hidden', () => {
+  const before = viewForLocalTesting(createGame({ seed: 42, startingPlayer: 0 }));
+  const yokai = before.players[0].hand!.find(card => card.definition.kind === 'yokai')!;
+  const spell = before.players[0].hand!.find(card => card.definition.kind === 'spell')!;
+  before.players[0].hand = null;
+  const summoned = structuredClone(before);
+  summoned.players[0].field = [{ ...yokai, zone: 'field' }];
+  expect(transitionEvents(before, summoned, { type: 'play', cardId: yokai.id })).toContainEqual(expect.objectContaining({ kind: 'move', from: 'hand:0', to: 'field:0:0', card: expect.objectContaining({ id: yokai.id }) }));
+  const cast = structuredClone(before);
+  cast.players[0].graveyard = [{ ...spell, zone: 'graveyard' }];
+  expect(transitionEvents(before, cast, { type: 'play', cardId: spell.id })).toContainEqual(expect.objectContaining({ kind: 'move', from: 'hand:0', to: 'graveyard:0', card: expect.objectContaining({ id: spell.id }) }));
+  const trapped = structuredClone(before);
+  trapped.players[0].trap = { hidden: true };
+  expect(transitionEvents(before, trapped, { type: 'setTrap', cardId: spell.id })).toContainEqual({ kind: 'move', from: 'hand:0', to: 'trap:0', seat: 0 });
 });
 
 it('animates public spell reveals, revival and hidden trap placement without revealing a hidden card', () => {

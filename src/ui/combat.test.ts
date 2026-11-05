@@ -52,9 +52,11 @@ it('shows impact only at completed contact and starts returning in the same turn
   const inbound = { finished: new Promise<void>(resolve => { returnHome = resolve; }), cancel: vi.fn() };
   const animate = vi.fn().mockReturnValueOnce(outbound).mockReturnValueOnce(inbound);
   const impact = vi.fn(), motion = animateAttack({ animate } as unknown as HTMLElement, { x: 10, y: -100 }, impact);
+  expect(animate.mock.calls[0][1]).toMatchObject({ duration: 270 });
   expect(impact).not.toHaveBeenCalled();
   arrive(); await Promise.resolve();
   expect(impact).toHaveBeenCalledOnce(); expect(animate).toHaveBeenCalledTimes(2);
+  expect(animate.mock.calls[1][1]).toMatchObject({ duration: 360 });
   returnHome(); await motion.finished;
 });
 it('cancels stale hits and honors reduced motion', async () => {

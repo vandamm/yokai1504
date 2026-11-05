@@ -23,6 +23,7 @@ import { inspectionPosition } from './inspection';
 import { publicAsset } from './assets';
 import { PlayerNames, PublicHistory } from './PublicHistory';
 import { InstallHelp, Notifications, shouldOfferNotifications } from './Notifications';
+import { MatchSign } from './MatchSign';
 
 const secureNumber = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const imagePath = (id: string) => publicAsset(`cards/${id}.png`);
@@ -59,7 +60,7 @@ function Rules({ onClose, onInspect }: { onClose: () => void; onInspect: (card: 
   </Modal>;
 }
 
-export function Setup({ onStart, onCreate, onJoin, entry, recent, busy, onRules }: { onStart: (names: [string, string], starter: PlayerId | undefined, openHands: boolean) => void; onCreate: (name: string) => void; onJoin: (room: string, invite: string, name: string) => void; entry: { room: string | null; invite: string | null }; recent: RecentGame[]; busy: boolean; onRules: () => void }) {
+export function Setup({ onStart, onStartAi, onCreate, onJoin, entry, recent, busy, onRules }: { onStart: (names: [string, string], starter: PlayerId | undefined, openHands: boolean) => void; onStartAi?: (name: string) => void; onCreate: (name: string) => void; onJoin: (room: string, invite: string, name: string) => void; entry: { room: string | null; invite: string | null }; recent: RecentGame[]; busy: boolean; onRules: () => void }) {
   const [names, setNames] = useState<[string, string]>(['', '']);
   const [name, setName] = useState('');
   const [mode, setMode] = useState<'create' | 'join'>(entry.room && entry.invite ? 'join' : 'create');
@@ -107,6 +108,7 @@ export function Setup({ onStart, onCreate, onJoin, entry, recent, busy, onRules 
     <h2 id="play-heading">{resumeFirst ? `Continue your game${activeGames.length > 1 ? 's' : ''}` : 'Take a seat.'}</h2>
     {resumeFirst ? <>{resumeGames}<details className="setup-disclosure new-game-setup"><summary>Start or join another game</summary>{onlineSetup}</details></> : <>{onlineSetup}{activeGames.length > 0 && <section><h3>Your unfinished games</h3>{resumeGames}</section>}</>}
     {otherGames.length > 0 && <details className="setup-disclosure"><summary>Other saved games</summary><div className="recent-rooms">{otherGames.map(game => <a key={game.room} href={inviteLink(window.location.href, game.room)}><strong>{game.opponent ? `vs ${game.opponent}` : `Saved table ${game.room.slice(-8)}`}</strong><span>{game.status === 'finished' ? 'Finished' : 'Status unavailable'}</span></a>)}</div></details>}
+    {onStartAi && <div className="online-setup"><button type="button" className="secondary start-button" disabled={busy} onClick={() => onStartAi(name.trim() || 'You')}>Play AI</button><p className="setup-help">A self-play trained opponent that cannot see your hand. Auto-saved on this device.</p></div>}
     <details className="setup-disclosure"><summary>Local testing · both sides on this device</summary>
     <form onSubmit={event => { event.preventDefault(); onStart([names[0].trim() || 'Player 1', names[1].trim() || 'Player 2'], starter === 'random' ? undefined : Number(starter) as PlayerId, openHands); }}>
       <div className="name-fields">{([0, 1] as const).map(id => <label key={id}>Player {id + 1}<input value={names[id]} maxLength={24} placeholder={`Player ${id + 1}`} autoComplete="off" onChange={event => setNames(old => id === 0 ? [event.target.value, old[1]] : [old[0], event.target.value])} /></label>)}</div>
@@ -165,6 +167,9 @@ export function App() {
   const busyRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [aiError, setAiError] = useState(false);
+  const [turnEndError, setTurnEndError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -198,6 +203,8 @@ export function App() {
   const resetTableUI = () => { setDraft(emptyDraft()); setInspectionId(undefined); setDetailsOpen(false); setReference(null); setGraveyard(null); setMenu(false); setHistory(false); setRules(false); setNotice(null); setHovered(undefined); };
   const adopt = (next: SessionSnapshot) => {
     setConnectionError(null);
+    setAiError(false);
+    setTurnEndError(false);
     resetTableUI();
     snapshotRef.current = next;
     setSnapshot(next);
@@ -227,8 +234,9 @@ export function App() {
     } catch (reason) { setError(errorMessage(reason)); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean) => void perform(async () => {
-    const next = await session.start({ seed: secureNumber(), names, startingPlayer, openHands });
+  const start = (names: [string, string], startingPlayer: PlayerId | undefined, openHands: boolean, aiPlayer?: PlayerId) => void perform(async () => {
+    const next = await session.start({ seed: secureNumber(), names, startingPlayer, openHands, aiPlayer });
+    setAiError(false);
     onlineActiveRef.current = false; setOnlineActive(false); setPendingRetry(false); setShareLink(undefined);
     setSetupEntry({ room: null, invite: null });
     const url = new URL(window.location.href); url.searchParams.delete('room'); url.hash = ''; window.history.replaceState(null, '', url.href);
@@ -238,7 +246,7 @@ export function App() {
   const joinOnline = (room: string, invite: string, name: string) => void perform(async () => activateOnline(await online.join(room, invite, name)), true);
   const mayAct = () => {
     const current = snapshotRef.current;
-    if (!onlineActiveRef.current) return true;
+    if (!onlineActiveRef.current) return current?.aiPlayer === undefined || current.view.decisionPlayer !== current.aiPlayer;
     const match = current as OnlineSnapshot | null;
     return !!match && !online.pending && !match.waitingForOpponent && match.viewer === match.view.decisionPlayer && !match.view.result;
   };
@@ -248,8 +256,9 @@ export function App() {
     if (!transitionEvents(before.view, next.view, command, battle).length) acceptPlayback(next);
     else {
       const sameField = battle && before.view.players.every((player, seat) => player.field.length === battle.players[seat].field.length && player.field.every(card => battle.players[seat].field.some(other => other.id === card.id)));
-      const delay = battle && (!sameField || before.view.players.some(player => player.field.some(card => battle.players[player.id].field.find(other => other.id === card.id)?.souls !== card.souls))) ? 220 : 0;
-      if (battle) { setSnapshot({ ...before, view: playbackView(battle, before.view) }); setDraft(emptyDraft()); }
+      const delay = battle && (!sameField || before.view.players.some(player => player.field.some(card => battle.players[player.id].field.find(other => other.id === card.id)?.souls !== card.souls))) ? 330 : 0;
+      const stage = battle ? playbackView(battle, before.view) : before.view;
+      setSnapshot({ ...before, view: playbackView(stage, next.view, false) }); setDraft(emptyDraft());
       setPlayback({ before, next: { ...next, battleView: battle }, command, geometry: battleGeometry(geometry, before.view, battle), delay });
     }
   };
@@ -272,20 +281,55 @@ export function App() {
     document.addEventListener('visibilitychange', poll);
     return () => { live = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
   }, [onlineActive, online, snapshot?.matchId]);
-  const submit = async (command: GameCommand) => {
-    const before = snapshotRef.current; if (!before || busyRef.current || !mayAct()) return;
+  const submit = async (command: GameCommand, automated = false) => {
+    const before = snapshotRef.current;
+    const autoEnd = command.type === 'endTurn' && before?.view.phase === 'turnEnd';
+    if (!before || busyRef.current) return;
+    if (automated && !autoEnd) { if (onlineActiveRef.current || before.aiPlayer !== before.view.decisionPlayer) return; }
+    else if ((!automated || onlineActiveRef.current) && !mayAct()) return;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null); setHovered(undefined);
     const geometry = captureGeometry();
     try {
       const next = onlineActiveRef.current ? await online.submit({ commandId: createId(), expectedRevision: before.revision, command }) : await session.submit({ matchId: before.matchId, commandId: createId(), expectedRevision: before.revision, actor: before.view.decisionPlayer, command });
       present(before, next, command, geometry);
-    } catch (reason) { setError(errorMessage(reason)); setPendingRetry(!!online.pending); busyRef.current = false; setBusy(false); }
+    } catch (reason) { if (autoEnd) setTurnEndError(true); else if (automated) setAiError(true); setError(errorMessage(reason)); setPendingRetry(!!online.pending); busyRef.current = false; setBusy(false); }
   };
+  useEffect(() => {
+    if (!snapshot || snapshot.view.phase !== 'turnEnd' || snapshot.view.result || busy || playback || pendingRetry || turnEndError) return;
+    if (onlineActive && (!mayAct() || online.pending)) return;
+    void submit({ type: 'endTurn' }, true);
+  }, [snapshot?.matchId, snapshot?.revision, busy, playback, onlineActive, pendingRetry, turnEndError]);
+  useEffect(() => {
+    if (onlineActive || !snapshot || snapshot.aiPlayer === undefined || snapshot.aiPlayer !== snapshot.view.decisionPlayer || snapshot.view.phase === 'turnEnd' || snapshot.view.result || busy || playback || aiError) return;
+    let live = true;
+    let worker: Worker | undefined;
+    const failed = (reason: unknown) => { if (live) { setAiThinking(false); setAiError(true); setError(errorMessage(reason)); } };
+    const timer = window.setTimeout(() => { worker?.terminate(); failed(new Error('The AI took too long. Retry its move.')); }, 20_000);
+    setAiThinking(true);
+    const decision = window.setTimeout(() => {
+      void session.getAiView().then(view => {
+        if (!live) return;
+        worker = new Worker(new URL('../ai/worker.ts', import.meta.url), { type: 'module' });
+        worker.onmessage = (event: MessageEvent<{ command?: GameCommand; error?: string }>) => {
+          window.clearTimeout(timer);
+          if (!live || snapshotRef.current?.matchId !== snapshot.matchId || snapshotRef.current.revision !== snapshot.revision) return;
+          if (!event.data.command) { failed(new Error(event.data.error || 'The AI could not choose a move.')); return; }
+          setAiThinking(false);
+          void submit(event.data.command, true);
+        };
+        worker.onerror = () => failed(new Error('The AI could not start. Retry its move.'));
+        worker.postMessage(view);
+      }).catch(failed);
+    }, 750);
+    return () => { live = false; window.clearTimeout(timer); window.clearTimeout(decision); worker?.terminate(); setAiThinking(false); };
+  }, [onlineActive, snapshot?.matchId, snapshot?.revision, busy, playback, aiError, session]);
   const onlineAction = async (command?: OnlineCommand) => {
     const before = snapshotRef.current; if (!before || busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null);
     try {
-      const next = command ? await online.submit({ commandId: createId(), expectedRevision: before.revision, command }) : await online.retry();
+      const undoing = command?.type === 'undo' || !command && online.pending?.command.type === 'undo';
+      let next = command ? await online.submit({ commandId: createId(), expectedRevision: before.revision, command }) : await online.retry();
+      while (undoing && next.view.phase === 'turnEnd' && next.canUndo) next = await online.submit({ commandId: createId(), expectedRevision: next.revision, command: { type: 'undo' } });
       setPendingRetry(false); acceptPlayback(next);
     } catch (reason) { setError(errorMessage(reason)); setPendingRetry(!!online.pending); busyRef.current = false; setBusy(false); }
   };
@@ -308,12 +352,17 @@ export function App() {
       window.open(url.href, '_blank', 'noopener'); setReplayOpen(false); setNotice('Replay opened in a separate session. Your current match is unchanged.');
     } catch (reason) { setReplayError(errorMessage(reason)); }
   };
-  const undo = () => { const before = snapshotRef.current; if (before) { if (onlineActiveRef.current) void onlineAction({ type: 'undo' }); else void perform(() => session.undo(before.revision)); } };
+  const undo = () => { const before = snapshotRef.current; if (before) { if (onlineActiveRef.current) void onlineAction({ type: 'undo' }); else void perform(async () => {
+    let next = await session.undo(before.revision);
+    while (next.view.phase === 'turnEnd' && next.canUndo) next = await session.undo(next.revision);
+    return next;
+  }); } };
   const toggleOpenHands = (value: boolean) => void perform(() => session.setOpenHands(value));
   const onDraft = (event: DraftEvent) => { if (!busyRef.current && mayAct()) { setDraft(old => updateDraft(old, event)); setNotice(null); setError(null); } };
   const view = snapshot?.view;
   const onlineMatch = onlineActive && snapshot ? snapshot as OnlineSnapshot : undefined;
-  const actionBlocked = busy || !mayAct();
+  const viewer = onlineMatch?.viewer ?? (snapshot?.aiPlayer === undefined ? undefined : (1 - snapshot.aiPlayer) as PlayerId);
+  const actionBlocked = busy || aiThinking || view?.phase === 'turnEnd' || !mayAct();
   const cards = view ? allVisible(view) : [];
   const source = view ? effectSource(view) : undefined;
   const selected = cards.find(card => card.id === draft.selectedId);
@@ -348,7 +397,7 @@ export function App() {
   const hoveredDefinition = hovered?.def ? CARDS[hovered.def] : hoveredCard?.definition;
   const historyView = playback?.next.view ?? view;
   const historyEntries = historyView?.historyEntries ?? historyView?.history ?? [];
-  const errorBanner = (error || connectionError) && <div className="error-banner" role="alert"><p>{error || connectionError}</p><button type="button" className="icon-button" aria-label="Dismiss error" onClick={() => { setError(null); setConnectionError(null); }}>×</button></div>;
+  const errorBanner = (error || connectionError || aiError || turnEndError) && <div className="error-banner" role="alert"><p>{error || connectionError || 'The game is paused.'}</p>{turnEndError && !pendingRetry && <button type="button" className="secondary" onClick={() => { setError(null); setTurnEndError(false); }}>Continue turn</button>}{aiError && <button type="button" className="secondary" onClick={() => { setError(null); setAiError(false); }}>Retry AI move</button>}<button type="button" className="icon-button" aria-label="Dismiss error" onClick={() => { setError(null); setConnectionError(null); }}>×</button></div>;
   return <div className={`app-shell ${view ? 'in-match' : ''}`} onPointerLeave={() => setHovered(undefined)} onScrollCapture={() => setHovered(undefined)} onFocus={event => {
     const el = (event.target as Element).closest<HTMLElement>('[data-card-def]');
     if (el) { const rect = el.getBoundingClientRect(); setHovered({ def: el.dataset.cardDef as CardDefId, left: rect.left, right: rect.right, top: rect.top }); }
@@ -363,22 +412,23 @@ export function App() {
       <div className="header-tools"><button type="button" className="header-button" disabled={busy} onClick={() => snapshot ? setMenu(true) : setRules(true)}>{snapshot ? 'Menu' : 'Rules'}</button>{!snapshot && <button type="button" className="header-button" onClick={() => setReplayOpen(true)}>Import replay</button>}</div>
     </header>}
     {!view && errorBanner}
-    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={recentGames} busy={busy} onRules={() => setRules(true)} /> : <>
-      <div className="sr-only" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div>
+    {loading ? <main className="loading-screen"><p>Setting the table…</p></main> : !view || !snapshot ? <Setup onStart={start} onStartAi={name => start([name, 'Yokai AI'], undefined, false, 1)} onCreate={createOnline} onJoin={joinOnline} entry={setupEntry} recent={recentGames} busy={busy} onRules={() => setRules(true)} /> : <>
+      <div className="sr-only" role="status"><TurnSummary view={view} viewer={viewer} openHands={snapshot.openHands} /></div>
       <div className="table-messages">{errorBanner}
+      {aiThinking && <div className="table-notice" role="status">AI is thinking…</div>}
       {onlineMatch && (pendingRetry || onlineMatch.waitingForOpponent) && <section className="online-status" aria-label="Online table" role="status">
         {pendingRetry && <div className="online-status-actions"><strong>Your last action needs a connection retry.</strong><button type="button" className="secondary" disabled={busy} onClick={() => void onlineAction()}>Retry last action</button></div>}
         {onlineMatch.waitingForOpponent ? <><strong>Waiting for your opponent to join</strong>{shareLink && <div className="invite-share"><label>Invitation link<input readOnly value={shareLink} onFocus={event => event.target.select()} /></label><button type="button" className="secondary" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(shareLink).then(() => setNotice('Invitation copied.')).catch(() => setNotice('Select and copy the invitation link.')); else setNotice('Select and copy the invitation link.'); }}>Copy invite</button></div>}</>
           : null}
       </section>}
       {notice && <div className="table-notice" role="status"><span>{notice}</span><button type="button" className="icon-button" aria-label="Dismiss explanation" onClick={() => setNotice(null)}>×</button></div>}
-      {view.result && <section className="game-result" role="status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} />{onlineMatch && <p>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Replay export finalizes the result'}</p>}<button type="button" onClick={() => setRestart(true)}>Play again</button></section>}
+      {view.result && <section className="game-result" role="status"><TurnSummary view={view} viewer={viewer} openHands={snapshot.openHands} />{onlineMatch && <p>{onlineMatch.finalized ? 'Finalized game · Undo is closed' : 'Replay export finalizes the result'}</p>}<button type="button" onClick={() => setRestart(true)}>Play again</button></section>}
       </div>
       <main className="game-workspace"><DragSurface view={view} draft={draft} disabled={actionBlocked} onDrop={drop} onPick={id => { setInspectionId(id); setDraft(old => ({ ...old, selectedId: id })); }}><div className="table-play">
         {!playback && !actionBlocked && view.phase !== 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} onCancel={snapshot.canUndo ? undo : undefined} />}
         {!actionBlocked && source?.def === 'boseki' && <section className="target-tray" aria-label="Boseki graveyard targets">{view.players.map(player => <div key={player.id}><strong>{player.name}’s graveyard</strong><div className="target-tray-cards">{candidates.cards.filter(card => card.controller === player.id).map(card => <GraveyardTarget key={card.id} card={card} selected={draft.targets.includes(card.id)} onInspect={() => onCard(card)} />)}{!candidates.cards.some(card => card.controller === player.id) && <small>No eligible yokai</small>}</div></div>)}</section>}
-        <Table onHistory={() => setHistory(true)} onNotifications={onlineMatch ? () => setNotificationsOpen(true) : undefined} view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
-          <TurnControls view={view} viewer={onlineMatch?.viewer} draft={draft} busy={busy || pendingRetry || !!onlineMatch?.waitingForOpponent} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
+        <Table onHistory={() => setHistory(true)} onNotifications={onlineMatch ? () => setNotificationsOpen(true) : undefined} view={view} viewer={viewer} openHands={snapshot.openHands} selectedId={draft.attackSourceId ?? draft.allocationCardId ?? draft.selectedId} targetIds={candidates.cards.map(card => card.id)} targetTrapSeats={candidates.hiddenTrapSeats} chosenTargets={draft.targets} allocations={draft.allocations} onCard={onCard} onTrap={onTrap} onGraveyard={setGraveyard} turnControls={<>
+          <TurnControls view={view} viewer={viewer} draft={draft} busy={busy || aiThinking || view.phase === 'turnEnd' || pendingRetry || !!onlineMatch?.waitingForOpponent} onCommand={submit} onDetails={onDetails} showInspect={!desktop} onUndo={undo} canUndo={snapshot.canUndo} />
           {playback && <span className="sr-only" role="status">Resolving…</span>}
         </>} onSoul={actionBlocked ? undefined : soul} onRelease={actionBlocked ? undefined : card => void submit({ type: 'release', cardId: card.id })} />
         {!playback && !actionBlocked && view.phase === 'trap' && <DecisionBar view={view} draft={draft} busy={busy} onDraft={onDraft} onCommand={submit} onDetails={onDetails} onUnavailable={setNotice} />}
@@ -386,16 +436,17 @@ export function App() {
 
       </main>
     </>}
-    {playback && <Playback events={transitionEvents(playback.before.view, playback.next.view, playback.command, playback.next.battleView)} geometry={playback.geometry} delay={playback.delay} onStart={() => setSnapshot(current => current && { ...current, view: playbackView(current.view, playback.next.view) })} onComplete={finishPlayback} />}
+    {view && snapshot && <MatchSign key={`${snapshot.matchId}:${view.turn}:${view.result?.winner ?? (view.result ? 'draw' : '')}`} view={view} viewer={viewer} show={!busy && !playback && !onlineMatch?.waitingForOpponent} />}
+    {playback && <Playback key={`${playback.next.matchId}:${playback.next.revision}`} events={transitionEvents(playback.before.view, playback.next.view, playback.command, playback.next.battleView)} geometry={playback.geometry} delay={playback.delay} fastHandMoves={playback.before.view.players[playback.before.view.decisionPlayer].hand === null} onStart={() => setSnapshot(current => current && { ...current, view: playbackView(current.view, playback.next.view) })} onComplete={finishPlayback} />}
     {menu && snapshot && <Modal title="Table menu" onClose={() => setMenu(false)}><div className="phone-menu-actions">
       <button type="button" className="secondary" onClick={() => { setMenu(false); setRules(true); }}>Rules & cards</button><button type="button" className="secondary" onClick={() => { setMenu(false); setHistory(true); }}>Public history</button>
-      {!onlineMatch && <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>}
-      {(!onlineMatch || view?.result) && <><p className="small muted">Replay files include both hands and deck order.{onlineMatch && ' Exporting finalizes this game and permanently disables Undo for both players.'}</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>{onlineMatch ? 'Export replay & finalize' : 'Export replay'}</button></>}<button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
+      {!onlineMatch && snapshot.aiPlayer === undefined && <label className="check-label"><input type="checkbox" checked={snapshot.openHands} onChange={event => toggleOpenHands(event.target.checked)} disabled={busy} /><span>Open hands<small>Show both hands and traps</small></span></label>}
+      {(!onlineMatch && snapshot.aiPlayer === undefined || view?.result) && <><p className="small muted">Replay files include both hands and deck order.{onlineMatch && ' Exporting finalizes this game and permanently disables Undo for both players.'}</p><button type="button" className="secondary" disabled={busy} onClick={() => void exportReplay()}>{onlineMatch ? 'Export replay & finalize' : 'Export replay'}</button></>}<button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setReplayOpen(true); }}>Import replay in new session</button>
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMenu(false); setRestart(true); }}>New game</button></div></Modal>}
     {replayOpen && <Modal title="Import replay" onClose={() => setReplayOpen(false)}><p>Choose an exported JSON file or paste it below. The replay opens in a separate session with its own save.</p><input type="file" accept=".json,application/json" aria-label="Replay file" onChange={async event => { const file = event.target.files?.[0]; if (file) { if (file.size > 5_000_000) setReplayError('The replay file is too large.'); else setReplayText(await file.text()); } }} /><textarea className="replay-input" aria-label="Replay JSON" value={replayText} onChange={event => setReplayText(event.target.value)} placeholder="Paste replay JSON" /><label className="replay-through">Replay through action<input type="number" min="0" max={replayCount} value={replayThrough} onChange={event => setReplayThrough(event.target.value)} placeholder={replayCount === undefined ? 'All actions' : `All ${replayCount} actions`} /></label>{replayError && <p role="alert">{replayError}</p>}<button type="button" className="primary" disabled={!replayText.trim()} onClick={() => void importReplay()}>Open replay in new session</button></Modal>}
-    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} viewer={onlineMatch?.viewer} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} names={[view.players[0].name, view.players[1].name]} viewer={onlineMatch?.viewer ?? view.decisionPlayer} onInspect={setReference} /><button type="button" className="secondary history-menu-button" onClick={() => { setHistory(false); setMenu(true); }}>Table menu</button></Modal>}
+    {history && view && snapshot && <Modal title="Public history" className="history-drawer" onClose={() => setHistory(false)}><div className="sidebar-turn-status"><TurnSummary view={view} viewer={viewer} openHands={snapshot.openHands} /></div><PublicHistory entries={historyEntries} names={[view.players[0].name, view.players[1].name]} viewer={viewer ?? view.decisionPlayer} onInspect={setReference} /><button type="button" className="secondary history-menu-button" onClick={() => { setHistory(false); setMenu(true); }}>Table menu</button></Modal>}
     {notificationsOpen && onlineMatch && <Modal title="Notifications" onClose={() => setNotificationsOpen(false)}><Notifications key={onlineMatch.matchId} session={online} /></Modal>}
-    {handPreview && hovered && hoveredCard && createPortal(<div className="hand-hover-preview" aria-hidden="true" style={{ left: Math.max(12, Math.min((hovered.left + hovered.right) / 2 - 100, window.innerWidth - 212)), top: hoveredCard.controller === (onlineMatch?.viewer ?? view?.decisionPlayer) ? Math.max(12, window.innerHeight - 12 - 200 * 947 / 640) : 12 }}><CardFace card={hoveredCard} /></div>, document.body)}
+    {handPreview && hovered && hoveredCard && createPortal(<div className="hand-hover-preview" aria-hidden="true" style={{ left: Math.max(12, Math.min((hovered.left + hovered.right) / 2 - 100, window.innerWidth - 212)), top: hoveredCard.controller === (viewer ?? view?.decisionPlayer) ? Math.max(12, window.innerHeight - 12 - 200 * 947 / 640) : 12 }}><CardFace card={hoveredCard} /></div>, document.body)}
     {desktop && (shiftHeld || hovered?.def) && hovered && hoveredDefinition && !busy && !detailsOpen && !menu && !rules && createPortal(<div className="shift-inspector" role="tooltip" aria-label={`${hoveredDefinition.name} details`} style={inspectionPosition(hovered, { width: window.innerWidth, height: window.innerHeight })}><Inspector definition={hoveredDefinition} /></div>, document.querySelector('dialog[open]') ?? document.body)}
     {detailsOpen && view && <Modal title="Card details" className="details-drawer" onClose={() => setDetailsOpen(false)}>{detailsContent}</Modal>}
     {rules && <Rules onClose={() => setRules(false)} onInspect={setReference} />}

@@ -8,7 +8,7 @@ import type { GameCommand, GameState, GameView, PlayerId, SetupOptions } from '.
 
 export const SAVE_KEY = 'yokai-1504.local-match.v1';
 export interface SessionStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; }
-export interface SessionSnapshot { matchId: string; revision: number; view: GameView; battleView?: GameView; openHands: boolean; canUndo: boolean; recentHistory: string[]; }
+export interface SessionSnapshot { matchId: string; revision: number; view: GameView; battleView?: GameView; openHands: boolean; canUndo: boolean; recentHistory: string[]; aiPlayer?: PlayerId; }
 interface Submission { matchId: string; commandId: string; expectedRevision: number; actor: PlayerId; command: GameCommand; }
 type Position = Omit<GameState, 'history'> & { historyLength: number };
 interface Receipt { commandId: string; payload: string; acceptedRevision: number; }
@@ -20,6 +20,7 @@ interface SavedMatch {
   matchId: string;
   revision: number;
   openHands: boolean;
+  aiPlayer?: PlayerId;
   state: GameState;
   checkpoints: Position[];
   receipts: Receipt[];
@@ -190,9 +191,10 @@ function parseSaved(raw: string): SavedMatch {
     const saved: unknown = JSON.parse(raw);
     check(object(saved), 'The match record is missing.');
     check(saved.schemaVersion === 1 && saved.catalogVersion === 1, 'The save or catalog version is incompatible.');
-    keys(saved, ['schemaVersion', 'catalogVersion', 'matchId', 'revision', 'openHands', 'state', 'checkpoints', 'receipts'], ['audit']);
+    keys(saved, ['schemaVersion', 'catalogVersion', 'matchId', 'revision', 'openHands', 'state', 'checkpoints', 'receipts'], ['audit', 'aiPlayer']);
     if (saved.audit !== undefined) validateAudit(saved.audit);
     check(text(saved.matchId) && integer(saved.revision) && typeof saved.openHands === 'boolean', 'Invalid match metadata.');
+    check(saved.aiPlayer === undefined || player(saved.aiPlayer) && !saved.openHands, 'Invalid AI match settings.');
     validateGame(saved.state);
     check(Array.isArray(saved.checkpoints), 'Invalid undo history.');
     let previousLength = 0;
@@ -240,12 +242,13 @@ export class LocalSession {
 
   private snapshot(): SessionSnapshot {
     const match = this.current();
-    const view = match.openHands ? viewForLocalTesting(match.state) : viewForPlayer(match.state, match.state.decisionPlayer);
+    const viewer = match.aiPlayer === undefined ? match.state.decisionPlayer : (1 - match.aiPlayer) as PlayerId;
+    const view = match.openHands ? viewForLocalTesting(match.state) : viewForPlayer(match.state, viewer);
     const checkpoint = match.checkpoints.at(-1), receipt = match.receipts.at(-1);
     const command: GameCommand | undefined = receipt?.acceptedRevision === match.revision ? JSON.parse(receipt.payload).command : undefined;
     const battle = checkpoint && command ? previewBattle({ ...checkpoint, history: match.state.history.slice(0, checkpoint.historyLength) }, command) : undefined;
-    const battleView = battle && (match.openHands ? viewForLocalTesting(battle) : viewForPlayer(battle, battle.decisionPlayer));
-    return copy({ matchId: match.matchId, revision: match.revision, view, battleView, openHands: match.openHands, canUndo: match.checkpoints.length > 0, recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0).map(historyText) });
+    const battleView = battle && (match.openHands ? viewForLocalTesting(battle) : viewForPlayer(battle, match.aiPlayer === undefined ? battle.decisionPlayer : viewer));
+    return copy({ matchId: match.matchId, revision: match.revision, view, battleView, aiPlayer: match.aiPlayer, openHands: match.openHands, canUndo: match.checkpoints.some(position => match.aiPlayer === undefined || position.decisionPlayer !== match.aiPlayer), recentHistory: match.state.history.slice(match.checkpoints.at(-1)?.historyLength ?? 0).map(historyText) });
   }
 
   private checkRevision(expected: number) {
@@ -280,20 +283,27 @@ export class LocalSession {
     return next ? this.snapshot() : null;
   }
 
-  async start(options: SetupOptions & { openHands?: boolean }): Promise<SessionSnapshot> {
+  async start(options: SetupOptions & { openHands?: boolean; aiPlayer?: PlayerId }): Promise<SessionSnapshot> {
     if (this.saved) this.checkStorage();
     const expected = this.saved ? this.persisted : this.read();
     check(integer(options.seed, 0, 0xffffffff), 'The game seed must be a 32-bit unsigned integer.');
     check(options.openHands === undefined || typeof options.openHands === 'boolean', 'Open hands must be enabled or disabled.');
+    check(options.aiPlayer === undefined || player(options.aiPlayer) && !options.openHands, 'AI matches require a valid AI seat and private hands.');
     const state = createGame(options);
     validateGame(state);
     const matchId = this.makeId();
     check(text(matchId), 'Could not create a match ID.');
-    this.persist({ schemaVersion: 1, catalogVersion: 1, matchId, revision: 0, openHands: options.openHands ?? false, state, checkpoints: [], receipts: [], audit: [] }, expected);
+    this.persist({ schemaVersion: 1, catalogVersion: 1, matchId, revision: 0, openHands: options.openHands ?? false, aiPlayer: options.aiPlayer, state, checkpoints: [], receipts: [], audit: [] }, expected);
     return this.snapshot();
   }
 
   async getSnapshot(): Promise<SessionSnapshot> { return this.snapshot(); }
+
+  async getAiView(): Promise<GameView> {
+    const match = this.current();
+    check(match.aiPlayer !== undefined && match.state.decisionPlayer === match.aiPlayer && !match.state.result, 'There is no AI decision to make.');
+    return viewForPlayer(match.state, match.aiPlayer);
+  }
 
   async submit(submission: Submission): Promise<SessionSnapshot> {
     const current = this.current();
@@ -323,9 +333,13 @@ export class LocalSession {
     this.checkRevision(expectedRevision);
     this.checkStorage();
     check(current.checkpoints.length > 0, 'There is no accepted action to undo.');
-    const { historyLength, ...position } = current.checkpoints[current.checkpoints.length - 1];
+    let index = current.checkpoints.length - 1;
+    while (index >= 0 && current.aiPlayer !== undefined && current.checkpoints[index].decisionPlayer === current.aiPlayer) index--;
+    check(index >= 0, 'There is no player action to undo.');
+    const { historyLength, ...position } = current.checkpoints[index];
     const state: GameState = { ...position, history: current.state.history.slice(0, historyLength) };
-    this.persist({ ...current, revision: current.revision + 1, state, audit: [...this.audit(current), { kind: 'undo' }], checkpoints: current.checkpoints.slice(0, -1) });
+    const undos: AuditEvent[] = current.checkpoints.slice(index).map(() => ({ kind: 'undo' }));
+    this.persist({ ...current, revision: current.revision + 1, state, audit: [...this.audit(current), ...undos], checkpoints: current.checkpoints.slice(0, index) });
     return this.snapshot();
   }
 
@@ -399,6 +413,7 @@ export class LocalSession {
   async setOpenHands(value: boolean): Promise<SessionSnapshot> {
     const current = this.current();
     check(typeof value === 'boolean', 'Open hands must be enabled or disabled.');
+    check(current.aiPlayer === undefined || !value, 'AI matches keep both hands private.');
     this.checkStorage();
     if (value !== current.openHands) this.persist({ ...current, revision: current.revision + 1, openHands: value, audit: [...this.audit(current), { kind: 'openHands', value }] });
     return this.snapshot();

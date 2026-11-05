@@ -32,12 +32,12 @@ export function animateAttack(element: Pick<HTMLElement, 'animate'>, travel: Poi
   const strike = `translate(${travel.x}px,${travel.y}px)`;
   const finished = (async () => {
     try {
-      animation = element.animate([{ transform: 'none' }, { transform: strike }], { duration: reduced ? 0 : 180, easing: 'cubic-bezier(.55,0,1,1)', fill: 'forwards' });
+      animation = element.animate([{ transform: 'none' }, { transform: strike }], { duration: reduced ? 0 : 270, easing: 'cubic-bezier(.55,0,1,1)', fill: 'forwards' });
       await animation.finished;
       if (cancelled) return;
       onImpact();
       animation.cancel();
-      animation = element.animate([{ transform: strike }, { transform: 'none' }], { duration: reduced ? 0 : 240, easing: 'cubic-bezier(0,0,.2,1)', fill: 'forwards' });
+      animation = element.animate([{ transform: strike }, { transform: 'none' }], { duration: reduced ? 0 : 360, easing: 'cubic-bezier(0,0,.2,1)', fill: 'forwards' });
       await animation.finished;
     } catch (error) { if (!cancelled) throw error; }
     finally { animation?.cancel(); }

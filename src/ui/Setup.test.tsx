@@ -20,6 +20,14 @@ it('offers online creation first and keeps local testing in its own disclosure',
   expect(html).toContain('aria-pressed="false">Join a game');
 });
 
+it('offers a private AI game outside the local testing disclosure', () => {
+  const html = renderToStaticMarkup(<Setup onStart={() => {}} onStartAi={() => {}} onCreate={() => {}} onJoin={() => {}} entry={{ room: null, invite: null }} recent={[]} busy={false} onRules={() => {}} />);
+  expect(html).toContain('Play AI');
+  expect(html.indexOf('Create online table')).toBeLessThan(html.indexOf('Play AI'));
+  expect(html.indexOf('Play AI')).toBeLessThan(html.indexOf('Local testing'));
+  expect(html).toContain('cannot see your hand');
+});
+
 it('offers the invited seat explicitly without putting its invitation into form text', () => {
   const html = renderToStaticMarkup(<Setup onStart={() => {}} onCreate={() => {}} onJoin={() => {}} entry={{ room: 'room-a', invite: 'invite-private' }} recent={[]} busy={false} onRules={() => {}} />);
   expect(html).toContain('Join invited table');

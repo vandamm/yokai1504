@@ -12,6 +12,7 @@
     "build": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "train:ai": "node scripts/train-ai.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "dev:online": "npm run build && wrangler dev --ip 127.0.0.1",
     "deploy:online": "npm run build && wrangler deploy",
